@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/TradeJournalWeb/static/css/main.efd648d4.css",
+    "main.js": "/TradeJournalWeb/static/js/main.e368c9ec.js",
+    "index.html": "/TradeJournalWeb/index.html",
+    "main.efd648d4.css.map": "/TradeJournalWeb/static/css/main.efd648d4.css.map",
+    "main.e368c9ec.js.map": "/TradeJournalWeb/static/js/main.e368c9ec.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.efd648d4.css",
+    "static/js/main.e368c9ec.js"
+  ]
+}
