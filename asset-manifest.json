@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/TradeJournalWeb/static/css/main.c401e659.css",
-    "main.js": "/TradeJournalWeb/static/js/main.0d8d9107.js",
+    "main.css": "/TradeJournalWeb/static/css/main.fe94ec75.css",
+    "main.js": "/TradeJournalWeb/static/js/main.bfc4efdd.js",
     "index.html": "/TradeJournalWeb/index.html",
-    "main.c401e659.css.map": "/TradeJournalWeb/static/css/main.c401e659.css.map",
-    "main.0d8d9107.js.map": "/TradeJournalWeb/static/js/main.0d8d9107.js.map"
+    "main.fe94ec75.css.map": "/TradeJournalWeb/static/css/main.fe94ec75.css.map",
+    "main.bfc4efdd.js.map": "/TradeJournalWeb/static/js/main.bfc4efdd.js.map"
   },
   "entrypoints": [
-    "static/css/main.c401e659.css",
-    "static/js/main.0d8d9107.js"
+    "static/css/main.fe94ec75.css",
+    "static/js/main.bfc4efdd.js"
   ]
 }
