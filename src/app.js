@@ -4,8 +4,9 @@ import { db } from './firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
 
+
 // --- Helper Functions & Icons ---
-const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
+const formatCurrency = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
 const DollarSignIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
 const TrendingUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>;
 const TrendingDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>;
@@ -21,87 +22,10 @@ const ChevronDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/sv
 const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
 const MinusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
 const ImageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>;
+const ChevronLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="15 18 9 12 15 6"></polyline></svg>;
+const ChevronRightIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>;
 
 // --- Components ---
-
-const DashboardCard = ({ title, value, icon, valueColor, subValue }) => (
-  <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center transition-colors duration-300">
-    <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full mr-4">{icon}</div>
-    <div>
-      <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
-      <p className={`text-xl font-bold ${valueColor}`}>{value}</p>
-      {subValue && <p className="text-xs text-gray-400 dark:text-gray-500">{subValue}</p>}
-    </div>
-  </div>
-);
-
-const EquityCurveChart = ({ trades, startingCapital }) => {
-  const [width, setWidth] = useState(0);
-  const [height, setHeight] = useState(0);
-  const chartRef = React.useRef(null);
-
-  useEffect(() => {
-    if (chartRef.current) {
-      setWidth(chartRef.current.clientWidth);
-      setHeight(chartRef.current.clientHeight);
-    }
-    const handleResize = () => {
-      if (chartRef.current) {
-        setWidth(chartRef.current.clientWidth);
-        setHeight(chartRef.current.clientHeight);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  if (trades.length === 0) {
-    return (
-      <div ref={chartRef} className="w-full h-full flex items-center justify-center text-gray-500">
-        Start trading to see the growth curve
-      </div>
-    );
-  }
-
-  const margin = { top: 5, right: 5, bottom: 20, left: 60 };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
-
-  const cumulativePnl = trades.reduce((acc, trade) => {
-    const lastPnl = acc.length > 0 ? acc[acc.length - 1] : 0;
-    acc.push(lastPnl + trade.pnl);
-    return acc;
-  }, []);
-  
-  const equityValues = [startingCapital, ...cumulativePnl.map(pnl => startingCapital + pnl)];
-  const maxEquity = Math.max(...equityValues, startingCapital);
-  const minEquity = Math.min(...equityValues, startingCapital);
-  const range = maxEquity - minEquity;
-
-  const xScale = (index) => (index / (equityValues.length - 1)) * innerWidth;
-  const yScale = (value) => innerHeight - ((value - minEquity) / (range || 1)) * innerHeight;
-
-  const points = equityValues.map((equity, index) => `${xScale(index)},${yScale(equity)}`).join(' ');
-
-  const themeColor = document.documentElement.classList.contains('dark') ? "#4a5568" : "#cbd5e1";
-  const textColor = document.documentElement.classList.contains('dark') ? "#a0aec0" : "#4a5568";
-  
-  return (
-    <div ref={chartRef} className="w-full h-full">
-      <svg width="100%" height="100%">
-        <g transform={`translate(${margin.left}, ${margin.top})`}>
-          <g className="axis y-axis">
-            <line x1="0" y1={yScale(maxEquity)} x2={innerWidth} y2={yScale(maxEquity)} stroke={themeColor} strokeDasharray="2,2" />
-            <text x={-10} y={yScale(maxEquity)} dy="0.32em" textAnchor="end" fill={textColor} className="text-xs">{formatCurrency(maxEquity)}</text>
-            <line x1="0" y1={yScale(minEquity)} x2={innerWidth} y2={yScale(minEquity)} stroke={themeColor} strokeDasharray="2,2" />
-            <text x={-10} y={yScale(minEquity)} dy="0.32em" textAnchor="end" fill={textColor} className="text-xs">{formatCurrency(minEquity)}</text>
-          </g>
-          <polyline fill="none" stroke="#4299e1" strokeWidth="2" points={points} />
-        </g>
-      </svg>
-    </div>
-  );
-};
 
 const AddTradeForm = ({ onAddTrade }) => {
   const [type, setType] = useState('Buy');
@@ -112,7 +36,7 @@ const AddTradeForm = ({ onAddTrade }) => {
     e.preventDefault();
     const pnlValue = parseFloat(pnl);
     if (!pnl || isNaN(pnlValue) || pnlValue === 0) {
-      setError('P&L must be a number and cannot be zero.');
+      setError('P&L harus berupa angka dan tidak boleh nol.');
       return;
     }
     setError('');
@@ -124,7 +48,7 @@ const AddTradeForm = ({ onAddTrade }) => {
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md transition-colors duration-300">
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
         <div>
-          <label htmlFor="type" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Type</label>
+          <label htmlFor="type" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Tipe</label>
           <select id="type" value={type} onChange={(e) => setType(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
             <option>Buy</option>
             <option>Sell</option>
@@ -132,10 +56,10 @@ const AddTradeForm = ({ onAddTrade }) => {
         </div>
         <div>
           <label htmlFor="pnl" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Profit / Loss ($)</label>
-          <input id="pnl" type="number" step="any" value={pnl} onChange={(e) => setPnl(e.target.value)} placeholder="e.g., 150 or -75" className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          <input id="pnl" type="number" step="any" value={pnl} onChange={(e) => setPnl(e.target.value)} placeholder="Contoh: 150 atau -75" className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
         </div>
         <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">
-          Save Trade
+          Simpan Trade
         </button>
       </form>
       {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
@@ -167,7 +91,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                 finalImageUrl = await getDownloadURL(snapshot.ref);
             } catch (error) {
                 console.error("Error uploading image: ", error);
-                alert("Failed to upload image.");
+                alert("Gagal mengunggah gambar.");
                 setIsUploading(false);
                 return;
             }
@@ -184,7 +108,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-full overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Trade Details & Edit</h2>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Detail & Edit Trade</h2>
                     <button onClick={onCancel} className="text-gray-500 hover:text-gray-800 dark:hover:text-white"><CloseIcon className="w-6 h-6"/></button>
                 </div>
                 
@@ -192,11 +116,11 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                     {/* Edit Section */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label htmlFor="edit-date" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Date</label>
+                            <label htmlFor="edit-date" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Tanggal</label>
                             <input id="edit-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
                         </div>
                         <div>
-                            <label htmlFor="edit-type" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Type</label>
+                            <label htmlFor="edit-type" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Tipe</label>
                             <select id="edit-type" value={type} onChange={(e) => setType(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
                                 <option>Buy</option>
                                 <option>Sell</option>
@@ -210,28 +134,28 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                     <hr className="border-gray-200 dark:border-gray-700"/>
                     {/* Screenshot Section */}
                     <div>
-                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Chart Screenshot</label>
+                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Screenshot Chart</label>
                         <div className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center">
                             {imageUrl && !imageFile && <img src={imageUrl} alt="Trade Screenshot" className="max-h-64 mx-auto rounded-md"/>}
                             {imageFile && <img src={URL.createObjectURL(imageFile)} alt="Preview" className="max-h-64 mx-auto rounded-md"/>}
-                            {!imageUrl && !imageFile && <div className="text-gray-400 flex flex-col items-center justify-center h-48"><ImageIcon className="w-16 h-16 mb-2"/><p>No image uploaded</p></div>}
+                            {!imageUrl && !imageFile && <div className="text-gray-400 flex flex-col items-center justify-center h-48"><ImageIcon className="w-16 h-16 mb-2"/><p>Belum ada gambar</p></div>}
                             <button onClick={() => fileInputRef.current.click()} className="mt-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-md transition">
-                                {imageUrl ? 'Change Image' : 'Select Image'}
+                                {imageUrl ? 'Ganti Gambar' : 'Pilih Gambar'}
                             </button>
                             <input type="file" accept="image/*" ref={fileInputRef} onChange={(e) => setImageFile(e.target.files[0])} className="hidden"/>
                         </div>
                     </div>
                     {/* Notes, Tags, Rating */}
                     <div>
-                        <label htmlFor="notes" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Notes & Trade Rationale</label>
-                        <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows="5" placeholder="Write your analysis, entry reasons, and lessons learned..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                        <label htmlFor="notes" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Catatan & Alasan Trade</label>
+                        <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows="5" placeholder="Tuliskan analisis Anda, alasan masuk, dan pelajaran yang didapat..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
                     </div>
                     <div>
-                        <label htmlFor="tags" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Tags (comma separated)</label>
-                        <input id="tags" type="text" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g., breakout, fomo, discipline" className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        <label htmlFor="tags" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Tags (pisahkan dengan koma)</label>
+                        <input id="tags" type="text" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="Contoh: breakout, fomo, disiplin" className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Execution Rating</label>
+                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Penilaian Eksekusi</label>
                         <div className="flex space-x-1">
                             {[1, 2, 3, 4, 5].map(star => (
                                 <button key={star} onClick={() => setRating(star)} className="text-yellow-400 hover:text-yellow-500 transition">
@@ -243,7 +167,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                 </div>
                 <div className="mt-8 flex justify-end">
                     <button onClick={handleSave} disabled={isUploading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition disabled:opacity-50">
-                        {isUploading ? 'Saving...' : 'Save Changes'}
+                        {isUploading ? 'Menyimpan...' : 'Simpan Perubahan'}
                     </button>
                 </div>
             </div>
@@ -298,13 +222,13 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-bold mb-4 text-center">Advanced Analytics Dashboard</h2>
+            <h2 className="text-xl font-bold mb-4 text-center">Dasbor Analisis Lanjutan</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
                 {/* Tag Performance */}
                 <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                    <h3 className="font-bold text-lg mb-4">"Tags" Performance Analysis</h3>
+                    <h3 className="font-bold text-lg mb-4">Analisis Performa "Tags"</h3>
                     <div>
-                        <h4 className="font-semibold text-green-500 mb-2">Best Strategies (Top 3)</h4>
+                        <h4 className="font-semibold text-green-500 mb-2">Strategi Terbaik (Top 3)</h4>
                         <ul className="space-y-2 text-sm">
                             {tagPerformance.top3.map(tag => (
                                 <li key={tag.name} className="flex justify-between">
@@ -316,7 +240,7 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
                     </div>
                     <hr className="my-4 border-gray-200 dark:border-gray-700"/>
                     <div>
-                        <h4 className="font-semibold text-red-500 mb-2">Biggest Mistakes (Top 3)</h4>
+                        <h4 className="font-semibold text-red-500 mb-2">Kesalahan Terbesar (Top 3)</h4>
                         <ul className="space-y-2 text-sm">
                             {tagPerformance.bottom3.map(tag => (
                                 <li key={tag.name} className="flex justify-between">
@@ -329,38 +253,38 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
                 </div>
                 {/* Risk & Psychology */}
                 <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                     <h3 className="font-bold text-lg mb-4">Risk & Psychology Analysis</h3>
+                     <h3 className="font-bold text-lg mb-4">Analisis Risiko & Psikologi</h3>
                      <div className="space-y-4 text-sm">
                         <div className="flex justify-between items-center">
-                            <span>Max. Winning Streak</span>
+                            <span>Rentetan Kemenangan Maks.</span>
                             <span className="font-bold text-2xl text-green-500">{streaks.maxWinStreak}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span>Max. Losing Streak</span>
+                            <span>Rentetan Kekalahan Maks.</span>
                             <span className="font-bold text-2xl text-red-500">{streaks.maxLossStreak}</span>
                         </div>
                         <hr className="my-2 border-gray-200 dark:border-gray-700"/>
                         <div className="flex justify-between items-center">
-                            <span>Avg. Win/Loss Ratio</span>
+                            <span>Rasio Rata-rata Profit/Loss</span>
                             <span className={`font-bold text-2xl ${avgWinLossRatio >= 1.5 ? 'text-green-500' : 'text-yellow-500'}`}>{avgWinLossRatio.toFixed(2)} : 1</span>
                         </div>
                      </div>
                 </div>
                 {/* Execution & Drawdown */}
                  <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                     <h3 className="font-bold text-lg mb-4">Execution & Drawdown</h3>
+                     <h3 className="font-bold text-lg mb-4">Eksekusi & Drawdown</h3>
                      <div className="space-y-2 text-sm">
                         <div className="flex justify-between items-center">
-                            <span>P&L on 5-Star Trades</span>
+                            <span>P&L Trade Bintang 5</span>
                             <span className={`font-semibold ${ratingPerformance.pnlByRating5 >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(ratingPerformance.pnlByRating5)}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span>P&L on 1-Star Trades</span>
+                            <span>P&L Trade Bintang 1</span>
                             <span className={`font-semibold ${ratingPerformance.pnlByRating1 >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(ratingPerformance.pnlByRating1)}</span>
                         </div>
                         <hr className="my-2 border-gray-200 dark:border-gray-700"/>
                         <div className="flex justify-between items-center">
-                            <span>Maximum Drawdown</span>
+                            <span>Maksimum Drawdown</span>
                             <span className="font-semibold text-red-500">{formatCurrency(drawdown.maxDrawdownValue)}</span>
                         </div>
                          <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
@@ -368,14 +292,14 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
                             <span>({drawdown.maxDrawdownPercent.toFixed(2)}%)</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span>Longest Drawdown Period</span>
+                            <span>Periode Drawdown Terpanjang</span>
                             <span className="font-semibold">{drawdown.longestDrawdownDuration} trades</span>
                         </div>
                      </div>
                 </div>
                 {/* Day Performance */}
                 <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                    <h3 className="font-bold text-lg mb-4">Performance by Day</h3>
+                    <h3 className="font-bold text-lg mb-4">Performa Berdasarkan Hari</h3>
                     <div className="grid grid-cols-7 gap-2">
                         {Object.entries(dayPerformance).map(([day, data]) => (
                            <Bar key={day} label={day.substring(0,3)} value={data.pnl} maxValue={maxDayPnl} color={data.pnl >= 0 ? 'bg-green-500' : 'bg-red-500'}/>
@@ -384,18 +308,18 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
                 </div>
                 {/* Expectancy & RRR Suggestion */}
                 <div className="lg:col-span-2 xl:col-span-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                    <h3 className="font-bold text-lg mb-4">Expectancy & RRR Suggestion</h3>
+                    <h3 className="font-bold text-lg mb-4">Analisis Ekspektasi & Saran RRR</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                         <div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Expectancy per Trade</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Ekspektasi per Trade</p>
                             <p className={`font-bold text-2xl ${expectancy.expectancyValue >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(expectancy.expectancyValue)}</p>
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Break-Even RRR (Min.)</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">RRR Impas (Min.)</p>
                             <p className="font-bold text-2xl">1 : {expectancy.breakEvenRRR.toFixed(2)}</p>
                         </div>
                         <div className="md:col-span-3 xl:col-span-1 bg-blue-100 dark:bg-blue-900/50 p-3 rounded-lg">
-                            <p className="text-sm font-bold text-blue-800 dark:text-blue-300">Suggestion</p>
+                            <p className="text-sm font-bold text-blue-800 dark:text-blue-300">Saran</p>
                             <p className="text-xs mt-1 text-blue-700 dark:text-blue-400">
                                 {expectancy.suggestion}
                             </p>
@@ -447,7 +371,7 @@ export default function App() {
   };
 
   const deleteTrade = async (id) => {
-    if (window.confirm('Are you sure you want to delete this trade?')) {
+    if (window.confirm('Apakah Anda yakin ingin menghapus trade ini?')) {
         await deleteDoc(doc(db, "trades", id));
     }
   };
@@ -525,6 +449,18 @@ export default function App() {
   }, [trades, startingCapital]);
 
   const advancedStats = useMemo(() => {
+    if (trades.length === 0) {
+        return {
+            tagPerformance: { top3: [], bottom3: [] },
+            streaks: { maxWinStreak: 0, maxLossStreak: 0 },
+            avgWinLossRatio: 0,
+            dayPerformance: ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'].reduce((acc, day) => ({...acc, [day]: {pnl: 0, count: 0}}), {}),
+            ratingPerformance: { pnlByRating1: 0, pnlByRating5: 0 },
+            drawdown: { maxDrawdownValue: 0, maxDrawdownPercent: 0, longestDrawdownDuration: 0 },
+            expectancy: { expectancyValue: 0, breakEvenRRR: 0, suggestion: "Data tidak cukup untuk memberikan saran." }
+        };
+    }
+
     const chronoSortedTrades = [...trades].sort((a,b) => a.date.toDate() - b.date.toDate());
     
     // Tag Performance
@@ -566,7 +502,7 @@ export default function App() {
     const avgWinLossRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
 
     // Day Performance
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const dayPerformance = dayNames.reduce((acc, day) => ({...acc, [day]: {pnl: 0, count: 0}}), {});
     trades.forEach(trade => {
         const day = dayNames[new Date(trade.date.toDate()).getDay()];
@@ -618,12 +554,12 @@ export default function App() {
     const lossRateDecimal = 1 - winRateDecimal;
     const expectancyValue = (winRateDecimal * avgWin) - (lossRateDecimal * avgLoss);
     const breakEvenRRR = winRateDecimal > 0 ? (1 / winRateDecimal) - 1 : 0;
-    let suggestion = "Not enough data for a suggestion.";
+    let suggestion = "Data tidak cukup untuk memberikan saran.";
     if (trades.length >= 10) {
         if (expectancyValue > 0) {
-            suggestion = `Your system is profitable. To maximize profits, look for trades with an RRR above 1:${(breakEvenRRR + 0.5).toFixed(2)}.`
+            suggestion = `Sistem Anda profitabel. Untuk memaksimalkan profit, carilah trade dengan RRR di atas 1:${(breakEvenRRR + 0.5).toFixed(2)}.`
         } else {
-            suggestion = `Your system is not yet profitable. Focus on increasing your Win Rate or finding trades with an RRR above 1:${(breakEvenRRR + 0.5).toFixed(2)}.`
+            suggestion = `Sistem Anda belum profitabel. Fokus untuk meningkatkan Win Rate atau mencari trade dengan RRR di atas 1:${(breakEvenRRR + 0.5).toFixed(2)}.`
         }
     }
 
@@ -648,8 +584,8 @@ export default function App() {
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold">Trading Journal v8.0</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Expectancy Analysis & RRR Suggestion.</p>
+            <h1 className="text-4xl font-bold">Jurnal Trading v8.0</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Analisis Ekspektasi & Saran RRR.</p>
           </div>
           <div className="flex items-center space-x-4">
             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
@@ -662,17 +598,17 @@ export default function App() {
            {/* Top Section: Quick Stats & Equity Curve */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <DashboardCard title="Current Equity" value={formatCurrency(dashboardStats.currentEquity)} valueColor="text-blue-500" icon={<TargetIcon className="w-6 h-6 text-blue-500" />} />
+                    <DashboardCard title="Ekuitas Saat Ini" value={formatCurrency(dashboardStats.currentEquity)} valueColor="text-blue-500" icon={<TargetIcon className="w-6 h-6 text-blue-500" />} />
                     <DashboardCard title="Total P&L" value={formatCurrency(dashboardStats.totalPnl)} valueColor={dashboardStats.totalPnl >= 0 ? 'text-green-500' : 'text-red-500'} icon={<DollarSignIcon className="w-6 h-6 text-green-500" />} />
                     <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-                        <label htmlFor="startingCapital" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Starting Capital</label>
+                        <label htmlFor="startingCapital" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Modal Awal</label>
                         <input id="startingCapital" type="number" value={startingCapital} onChange={(e) => setStartingCapital(parseFloat(e.target.value) || 0)} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
                     </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                    <h3 className="font-bold text-lg mb-2">Equity Growth Curve</h3>
+                    <h3 className="font-bold text-lg mb-2">Kurva Pertumbuhan Ekuitas</h3>
                     <div className="h-48">
-                        {loading ? <p className="text-center">Loading chart data...</p> : <EquityCurveChart trades={sortedTradesForChart} startingCapital={startingCapital} />}
+                        {loading ? <p className="text-center">Memuat data grafik...</p> : <EquityCurveChart trades={sortedTradesForChart} startingCapital={startingCapital} />}
                     </div>
                 </div>
             </div>
@@ -680,7 +616,7 @@ export default function App() {
             {/* Collapsible Advanced Analytics */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
                 <button onClick={() => setIsAdvancedVisible(!isAdvancedVisible)} className="w-full p-4 flex justify-between items-center">
-                    <h2 className="text-xl font-bold">Show Advanced Analytics</h2>
+                    <h2 className="text-xl font-bold">Tampilkan Analisis Lanjutan</h2>
                     <ChevronDownIcon className={`w-6 h-6 transition-transform ${isAdvancedVisible ? 'rotate-180' : ''}`} />
                 </button>
                 {isAdvancedVisible && <AdvancedAnalyticsDashboard stats={advancedStats} />}
@@ -690,7 +626,7 @@ export default function App() {
             <div className="space-y-8">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
                     <div className="p-6 flex justify-between items-center">
-                        <h2 className="text-xl font-bold">Add New Trade</h2>
+                        <h2 className="text-xl font-bold">Tambah Trade Baru</h2>
                         <button onClick={() => setIsFormVisible(!isFormVisible)} className="text-gray-500 hover:text-gray-800 dark:hover:text-white">
                             {isFormVisible ? <MinusCircleIcon className="w-6 h-6"/> : <PlusCircleIcon className="w-6 h-6"/>}
                         </button>
@@ -700,15 +636,15 @@ export default function App() {
 
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md transition-colors duration-300">
                     <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
-                        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 sm:mb-0">Trade History ({filteredAndSortedTrades.length})</h2>
+                        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 sm:mb-0">Riwayat Trading ({filteredAndSortedTrades.length})</h2>
                         <div className="flex items-center space-x-4">
                             <select onChange={(e) => setFilterStatus(e.target.value)} value={filterStatus} className="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                <option value="all">All Statuses</option>
+                                <option value="all">Semua Status</option>
                                 <option value="Win">Win</option>
                                 <option value="Loss">Loss</option>
                             </select>
                             <select onChange={(e) => setFilterType(e.target.value)} value={filterType} className="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                <option value="all">All Types</option>
+                                <option value="all">Semua Tipe</option>
                                 <option value="Buy">Buy</option>
                                 <option value="Sell">Sell</option>
                             </select>
@@ -718,22 +654,22 @@ export default function App() {
                     <table className="w-full text-left">
                         <thead>
                         <tr className="border-b border-gray-200 dark:border-gray-700">
-                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-gray-400">Details</th>
-                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-gray-400 cursor-pointer" onClick={() => requestSort('date')}>Date ⇅</th>
-                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-gray-400">Type</th>
+                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-gray-400">Detail</th>
+                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-gray-400 cursor-pointer" onClick={() => requestSort('date')}>Tanggal ⇅</th>
+                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-gray-400">Tipe</th>
                             <th className="p-3 text-sm font-semibold text-gray-500 dark:text-gray-400">Status</th>
                             <th className="p-3 text-sm font-semibold text-gray-500 dark:text-gray-400 cursor-pointer" onClick={() => requestSort('pnl')}>P&L ⇅</th>
-                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-gray-400">Actions</th>
+                            <th className="p-3 text-sm font-semibold text-gray-500 dark:text-gray-400">Aksi</th>
                         </tr>
                         </thead>
                         <tbody>
-                        {loading ? ( <tr><td colSpan="6" className="text-center p-8 text-gray-500">Loading trade data...</td></tr> ) : paginatedTrades.length > 0 ? (
+                        {loading ? ( <tr><td colSpan="6" className="text-center p-8 text-gray-500">Memuat data trading...</td></tr> ) : paginatedTrades.length > 0 ? (
                             paginatedTrades.map(trade => (
                             <tr key={trade.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setViewingTrade(trade)}>
                                 <td className="p-3 text-center">
                                     { (trade.notes || (trade.tags && trade.tags.length > 0) || trade.rating > 0 || trade.imageUrl) && <NoteIcon className="w-5 h-5 text-blue-500 mx-auto"/> }
                                 </td>
-                                <td className="p-3 text-gray-600 dark:text-gray-300">{trade.date.toDate().toLocaleDateString('en-US')}</td>
+                                <td className="p-3 text-gray-600 dark:text-gray-300">{trade.date.toDate().toLocaleDateString('id-ID')}</td>
                                 <td className={`p-3 font-semibold ${trade.type === 'Buy' ? 'text-green-500' : 'text-red-500'}`}>{trade.type}</td>
                                 <td className={`p-3 font-semibold ${trade.status === 'Win' ? 'text-green-500' : 'text-red-500'}`}>{trade.status}</td>
                                 <td className={`p-3 font-semibold ${trade.pnl > 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(trade.pnl)}</td>
@@ -743,7 +679,7 @@ export default function App() {
                             </tr>
                             ))
                         ) : (
-                            <tr><td colSpan="6" className="text-center p-8 text-gray-500">No matching data found.</td></tr>
+                            <tr><td colSpan="6" className="text-center p-8 text-gray-500">Tidak ada data yang cocok.</td></tr>
                         )}
                         </tbody>
                     </table>
