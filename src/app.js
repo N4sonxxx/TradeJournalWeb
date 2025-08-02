@@ -27,6 +27,85 @@ const ChevronRightIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/s
 
 // --- Components ---
 
+const DashboardCard = ({ title, value, icon, valueColor, subValue }) => (
+  <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center transition-colors duration-300">
+    <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full mr-4">{icon}</div>
+    <div>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
+      <p className={`text-xl font-bold ${valueColor}`}>{value}</p>
+      {subValue && <p className="text-xs text-gray-400 dark:text-gray-500">{subValue}</p>}
+    </div>
+  </div>
+);
+
+const EquityCurveChart = ({ trades, startingCapital }) => {
+  const [width, setWidth] = useState(0);
+  const [height, setHeight] = useState(0);
+  const chartRef = React.useRef(null);
+
+  useEffect(() => {
+    if (chartRef.current) {
+      setWidth(chartRef.current.clientWidth);
+      setHeight(chartRef.current.clientHeight);
+    }
+    const handleResize = () => {
+      if (chartRef.current) {
+        setWidth(chartRef.current.clientWidth);
+        setHeight(chartRef.current.clientHeight);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  if (trades.length === 0) {
+    return (
+      <div ref={chartRef} className="w-full h-full flex items-center justify-center text-gray-500">
+        Mulai trading untuk melihat grafik pertumbuhan
+      </div>
+    );
+  }
+
+  const margin = { top: 5, right: 5, bottom: 20, left: 60 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  const cumulativePnl = trades.reduce((acc, trade) => {
+    const lastPnl = acc.length > 0 ? acc[acc.length - 1] : 0;
+    acc.push(lastPnl + trade.pnl);
+    return acc;
+  }, []);
+  
+  const equityValues = [startingCapital, ...cumulativePnl.map(pnl => startingCapital + pnl)];
+  const maxEquity = Math.max(...equityValues, startingCapital);
+  const minEquity = Math.min(...equityValues, startingCapital);
+  const range = maxEquity - minEquity;
+
+  const xScale = (index) => (index / (equityValues.length - 1)) * innerWidth;
+  const yScale = (value) => innerHeight - ((value - minEquity) / (range || 1)) * innerHeight;
+
+  const points = equityValues.map((equity, index) => `${xScale(index)},${yScale(equity)}`).join(' ');
+
+  const themeColor = document.documentElement.classList.contains('dark') ? "#4a5568" : "#cbd5e1";
+  const textColor = document.documentElement.classList.contains('dark') ? "#a0aec0" : "#4a5568";
+  
+  return (
+    <div ref={chartRef} className="w-full h-full">
+      <svg width="100%" height="100%">
+        <g transform={`translate(${margin.left}, ${margin.top})`}>
+          <g className="axis y-axis">
+            <line x1="0" y1={yScale(maxEquity)} x2={innerWidth} y2={yScale(maxEquity)} stroke={themeColor} strokeDasharray="2,2" />
+            <text x={-10} y={yScale(maxEquity)} dy="0.32em" textAnchor="end" fill={textColor} className="text-xs">{formatCurrency(maxEquity)}</text>
+            <line x1="0" y1={yScale(minEquity)} x2={innerWidth} y2={yScale(minEquity)} stroke={themeColor} strokeDasharray="2,2" />
+            <text x={-10} y={yScale(minEquity)} dy="0.32em" textAnchor="end" fill={textColor} className="text-xs">{formatCurrency(minEquity)}</text>
+          </g>
+          <polyline fill="none" stroke="#4299e1" strokeWidth="2" points={points} />
+        </g>
+      </svg>
+    </div>
+  );
+};
+
 const AddTradeForm = ({ onAddTrade }) => {
   const [type, setType] = useState('Buy');
   const [pnl, setPnl] = useState('');
@@ -200,6 +279,104 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
     );
 };
 
+const DonutChart = ({ data }) => {
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+    if (total === 0) return <div className="flex items-center justify-center h-full w-full text-gray-500">No data</div>;
+    
+    const strokeWidth = 10;
+    const radius = 45 - strokeWidth / 2;
+    const circumference = 2 * Math.PI * radius;
+    let offset = 0;
+
+    return (
+        <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+            {data.map(item => {
+                const dashoffset = circumference - (item.value / total) * circumference;
+                const segment = (
+                    <circle
+                        key={item.label}
+                        cx="50" cy="50" r={radius}
+                        fill="transparent"
+                        stroke={item.color}
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={circumference}
+                        strokeDashoffset={dashoffset}
+                        transform={`rotate(${(offset / total) * 360} 50 50)`}
+                    />
+                );
+                offset += item.value;
+                return segment;
+            })}
+        </svg>
+    );
+};
+
+const TradingCalendar = ({ trades, currentDate, setCurrentDate }) => {
+    const daysOfWeek = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const tradesByDay = useMemo(() => {
+        const map = {};
+        trades.forEach(trade => {
+            const tradeDate = new Date(trade.date.toDate());
+            if (tradeDate.getFullYear() === year && tradeDate.getMonth() === month) {
+                const day = tradeDate.getDate();
+                if (!map[day]) {
+                    map[day] = { pnl: 0, count: 0 };
+                }
+                map[day].pnl += trade.pnl;
+                map[day].count++;
+            }
+        });
+        return map;
+    }, [trades, year, month]);
+
+    const changeMonth = (offset) => {
+        setCurrentDate(new Date(year, month + offset, 1));
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronLeftIcon className="w-6 h-6"/></button>
+                <h2 className="text-xl font-bold">{monthNames[month]} {year}</h2>
+                <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronRightIcon className="w-6 h-6"/></button>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">
+                {daysOfWeek.map(day => <div key={day}>{day}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-1 mt-2">
+                {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`}></div>)}
+                {Array.from({ length: daysInMonth }).map((_, day) => {
+                    const dayNumber = day + 1;
+                    const dayData = tradesByDay[dayNumber];
+                    const isToday = new Date().getDate() === dayNumber && new Date().getMonth() === month && new Date().getFullYear() === year;
+                    let bgColor = 'bg-transparent';
+                    if (dayData) {
+                        bgColor = dayData.pnl > 0 ? 'bg-green-500/20' : 'bg-red-500/20';
+                    }
+                    return (
+                        <div key={dayNumber} className={`p-1 rounded-lg text-center h-20 flex flex-col justify-start items-center ${bgColor}`}>
+                            <span className={`w-6 h-6 flex items-center justify-center rounded-full text-sm ${isToday ? 'bg-blue-600 text-white' : ''}`}>{dayNumber}</span>
+                            {dayData && (
+                                <span className={`mt-1 text-xs font-bold ${dayData.pnl > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                    {formatCurrency(dayData.pnl).replace(/\..*/, '')}
+                                </span>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 const AdvancedAnalyticsDashboard = ({ stats }) => {
     const { tagPerformance, streaks, dayPerformance, avgWinLossRatio, ratingPerformance, drawdown, expectancy } = stats;
 
@@ -337,8 +514,8 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
 export default function App() {
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [startingCapital, setStartingCapital] = useState(() => { try { const savedCapital = localStorage.getItem('startingCapitalV8'); return savedCapital ? parseFloat(savedCapital) : 10000; } catch (error) { return 10000; } });
-  const [theme, setTheme] = useState(() => localStorage.getItem('themeV8') || 'dark');
+  const [startingCapital, setStartingCapital] = useState(() => { try { const savedCapital = localStorage.getItem('startingCapitalV10'); return savedCapital ? parseFloat(savedCapital) : 10000; } catch (error) { return 10000; } });
+  const [theme, setTheme] = useState(() => localStorage.getItem('themeV10') || 'dark');
   const [viewingTrade, setViewingTrade] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
@@ -346,8 +523,9 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const TRADES_PER_PAGE = 10;
   const [isFormVisible, setIsFormVisible] = useState(true);
-  const [isAdvancedVisible, setIsAdvancedVisible] = useState(true);
-  
+  const [isAdvancedVisible, setIsAdvancedVisible] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
+
   useEffect(() => {
     setLoading(true);
     const q = query(collection(db, "trades"), orderBy("date", "desc"));
@@ -362,8 +540,8 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => { localStorage.setItem('startingCapitalV8', startingCapital); }, [startingCapital]);
-  useEffect(() => { if (theme === 'dark') { document.documentElement.classList.add('dark'); } else { document.documentElement.classList.remove('dark'); } localStorage.setItem('themeV8', theme); }, [theme]);
+  useEffect(() => { localStorage.setItem('startingCapitalV10', startingCapital); }, [startingCapital]);
+  useEffect(() => { if (theme === 'dark') { document.documentElement.classList.add('dark'); } else { document.documentElement.classList.remove('dark'); } localStorage.setItem('themeV10', theme); }, [theme]);
 
   const addTrade = async (trade) => {
     const newTrade = { ...trade, date: new Date(), status: trade.pnl > 0 ? 'Win' : 'Loss', notes: '', tags: [], rating: 0, imageUrl: '' };
@@ -433,18 +611,26 @@ export default function App() {
     currentPage * TRADES_PER_PAGE
   );
 
+  const monthlyStats = useMemo(() => {
+    const monthTrades = trades.filter(trade => {
+        const tradeDate = new Date(trade.date.toDate());
+        return tradeDate.getFullYear() === currentDate.getFullYear() && tradeDate.getMonth() === currentDate.getMonth();
+    });
+    const total = monthTrades.length;
+    const wins = monthTrades.filter(t => t.status === 'Win').length;
+    const losses = total - wins;
+    const winRate = total > 0 ? (wins / total) * 100 : 0;
+    const totalProfit = monthTrades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
+    const totalLoss = monthTrades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0);
+    const netPnl = totalProfit + totalLoss;
+    return { total, wins, losses, winRate, totalProfit, totalLoss, netPnl };
+  }, [trades, currentDate]);
+
   const dashboardStats = useMemo(() => {
-    const calculateStats = (filteredTrades) => { const total = filteredTrades.length; const wins = filteredTrades.filter(t => t.status === 'Win').length; const losses = total - wins; const pnl = filteredTrades.reduce((sum, t) => sum + t.pnl, 0); const winRate = total > 0 ? (wins / total) * 100 : 0; return { total, wins, losses, pnl, winRate }; };
-    const buyTrades = trades.filter(t => t.type === 'Buy');
-    const sellTrades = trades.filter(t => t.type === 'Sell');
     const totalPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
-    const winRate = trades.length > 0 ? (trades.filter(t => t.status === 'Win').length / trades.length) * 100 : 0;
     return {
-      buyStats: calculateStats(buyTrades),
-      sellStats: calculateStats(sellTrades),
       totalPnl,
       currentEquity: startingCapital + totalPnl,
-      winRate
     };
   }, [trades, startingCapital]);
 
@@ -462,6 +648,10 @@ export default function App() {
     }
 
     const chronoSortedTrades = [...trades].sort((a,b) => a.date.toDate() - b.date.toDate());
+    
+    const winningTrades = trades.filter(t => t.status === 'Win');
+    const losingTrades = trades.filter(t => t.status === 'Loss');
+    const winRate = trades.length > 0 ? winningTrades.length / trades.length : 0;
     
     // Tag Performance
     const tagMap = {};
@@ -495,8 +685,6 @@ export default function App() {
     });
 
     // Avg Win/Loss Ratio
-    const winningTrades = trades.filter(t => t.status === 'Win');
-    const losingTrades = trades.filter(t => t.status === 'Loss');
     const avgWin = winningTrades.reduce((sum, t) => sum + t.pnl, 0) / (winningTrades.length || 1);
     const avgLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.pnl, 0) / (losingTrades.length || 1));
     const avgWinLossRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
@@ -550,10 +738,9 @@ export default function App() {
     const maxDrawdownPercent = peakEquity > 0 ? (maxDrawdownValue / peakEquity) * 100 : 0;
 
     // Expectancy
-    const winRateDecimal = dashboardStats.winRate / 100;
-    const lossRateDecimal = 1 - winRateDecimal;
-    const expectancyValue = (winRateDecimal * avgWin) - (lossRateDecimal * avgLoss);
-    const breakEvenRRR = winRateDecimal > 0 ? (1 / winRateDecimal) - 1 : 0;
+    const lossRate = 1 - winRate;
+    const expectancyValue = (winRate * avgWin) - (lossRate * avgLoss);
+    const breakEvenRRR = winRate > 0 ? (1 / winRate) - 1 : 0;
     let suggestion = "Data tidak cukup untuk memberikan saran.";
     if (trades.length >= 10) {
         if (expectancyValue > 0) {
@@ -562,7 +749,6 @@ export default function App() {
             suggestion = `Sistem Anda belum profitabel. Fokus untuk meningkatkan Win Rate atau mencari trade dengan RRR di atas 1:${(breakEvenRRR + 0.5).toFixed(2)}.`
         }
     }
-
 
     return {
         tagPerformance: { top3, bottom3 },
@@ -573,7 +759,7 @@ export default function App() {
         drawdown: { maxDrawdownValue, maxDrawdownPercent, longestDrawdownDuration },
         expectancy: { expectancyValue, breakEvenRRR, suggestion }
     };
-  }, [trades, startingCapital, dashboardStats.winRate]);
+  }, [trades, startingCapital]);
 
   const sortedTradesForChart = useMemo(() => {
     return [...trades].sort((a, b) => new Date(a.date.toDate()) - new Date(b.date.toDate()));
@@ -584,8 +770,8 @@ export default function App() {
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold">Jurnal Trading v8.0</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Analisis Ekspektasi & Saran RRR.</p>
+            <h1 className="text-4xl font-bold">Jurnal Trading v10.0</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Versi Final dengan Analisis Lengkap.</p>
           </div>
           <div className="flex items-center space-x-4">
             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
@@ -595,7 +781,7 @@ export default function App() {
         </header>
 
         <main>
-           {/* Top Section: Quick Stats & Equity Curve */}
+            {/* Top Section: Quick Stats & Equity Curve */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <DashboardCard title="Ekuitas Saat Ini" value={formatCurrency(dashboardStats.currentEquity)} valueColor="text-blue-500" icon={<TargetIcon className="w-6 h-6 text-blue-500" />} />
@@ -609,6 +795,34 @@ export default function App() {
                     <h3 className="font-bold text-lg mb-2">Kurva Pertumbuhan Ekuitas</h3>
                     <div className="h-48">
                         {loading ? <p className="text-center">Memuat data grafik...</p> : <EquityCurveChart trades={sortedTradesForChart} startingCapital={startingCapital} />}
+                    </div>
+                </div>
+            </div>
+
+            {/* Calendar & Monthly Stats Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <div className="lg:col-span-2">
+                    <TradingCalendar trades={trades} currentDate={currentDate} setCurrentDate={setCurrentDate} />
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-bold mb-4">Statistik Bulanan</h2>
+                    <div className="w-40 h-40 mx-auto mb-4">
+                        <DonutChart data={[
+                            { label: 'Profit', value: monthlyStats.totalProfit, color: '#48bb78' },
+                            { label: 'Loss', value: Math.abs(monthlyStats.totalLoss), color: '#f56565' }
+                        ]}/>
+                    </div>
+                    <div className="space-y-3 text-sm">
+                        <p className="flex justify-between"><span>Profit:</span> <span className="font-semibold text-green-500">{formatCurrency(monthlyStats.totalProfit)}</span></p>
+                        <p className="flex justify-between"><span>Loss:</span> <span className="font-semibold text-red-500">{formatCurrency(monthlyStats.totalLoss)}</span></p>
+                        <p className="flex justify-between font-bold border-t border-gray-200 dark:border-gray-700 pt-2"><span>P&L Bersih:</span> <span className={monthlyStats.netPnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(monthlyStats.netPnl)}</span></p>
+                    </div>
+                    <hr className="my-4 border-gray-200 dark:border-gray-700"/>
+                    <div className="space-y-3 text-sm">
+                        <p className="flex justify-between"><span>Total Trade:</span> <span className="font-semibold">{monthlyStats.total}</span></p>
+                        <p className="flex justify-between"><span>Trade Profit:</span> <span className="font-semibold">{monthlyStats.wins}</span></p>
+                        <p className="flex justify-between"><span>Trade Loss:</span> <span className="font-semibold">{monthlyStats.losses}</span></p>
+                        <p className="flex justify-between"><span>Win Rate:</span> <span className="font-semibold">{monthlyStats.winRate.toFixed(1)}%</span></p>
                     </div>
                 </div>
             </div>
