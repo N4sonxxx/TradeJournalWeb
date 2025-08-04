@@ -836,7 +836,7 @@ export default function App() {
 
   useEffect(() => {
     setLoading(true);
-    const q = query(collection(db, "transactions"), orderBy("date", "desc"));
+    const q = query(collection(db, "trades"), orderBy("date", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const transactionsData = [];
       querySnapshot.forEach((doc) => {
