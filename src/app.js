@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-// Import lengkap dari Firebase, termasuk storage
-import { db } from './firebase';
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc } from "firebase/firestore";
-
 
 // --- Helper Functions & Icons ---
-const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
+const formatCurrency = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
 const DollarSignIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
 const TrendingUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>;
 const TrendingDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>;
@@ -21,7 +16,6 @@ const CloseIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" wid
 const ChevronDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"></polyline></svg>;
 const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
 const MinusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
-const ImageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>;
 const ChevronLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="15 18 9 12 15 6"></polyline></svg>;
 const ChevronRightIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>;
 
@@ -172,46 +166,23 @@ const AddTransactionForm = ({ onAddTransaction }) => {
 };
 
 const TradeDetailModal = ({ trade, onSave, onCancel }) => {
-    const [date, setDate] = useState(new Date(trade.date.toDate()).toISOString().split('T')[0]);
+    const [date, setDate] = useState(new Date(trade.date).toISOString().split('T')[0]);
     const [type, setType] = useState(trade.type);
     const [pnl, setPnl] = useState(trade.pnl);
     const [notes, setNotes] = useState(trade.notes || '');
     const [tags, setTags] = useState(trade.tags ? trade.tags.join(', ') : '');
     const [rating, setRating] = useState(trade.rating || 0);
-    const [imageFile, setImageFile] = useState(null);
-    const [isUploading, setIsUploading] = useState(false);
-    const [imageUrl, setImageUrl] = useState(trade.imageUrl || '');
-    const fileInputRef = React.useRef(null);
 
     const isTrade = type === 'Buy' || type === 'Sell';
 
-    const handleSave = async () => {
-        setIsUploading(true);
-        let finalImageUrl = imageUrl;
-
-        if (imageFile) {
-            const storage = getStorage();
-            const storageRef = ref(storage, `screenshots/${trade.id}/${imageFile.name}`);
-            try {
-                const snapshot = await uploadBytes(storageRef, imageFile);
-                finalImageUrl = await getDownloadURL(snapshot.ref);
-            } catch (error) {
-                console.error("Error uploading image: ", error);
-                alert("Gagal mengunggah gambar.");
-                setIsUploading(false);
-                return;
-            }
-        }
-
+    const handleSave = () => {
         let pnlValue = parseFloat(pnl);
         if (isNaN(pnlValue)) {
             alert('Jumlah/P&L harus berupa angka.');
-            setIsUploading(false);
             return;
         }
         if (!date) {
             alert('Tanggal tidak boleh kosong.');
-            setIsUploading(false);
             return;
         }
         
@@ -223,8 +194,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
 
         const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
         const status = isTrade ? (pnlValue > 0 ? 'Win' : 'Loss') : null;
-        onSave({ ...trade, date: new Date(date), type, pnl: pnlValue, status, notes, tags: tagsArray, rating, imageUrl: finalImageUrl });
-        setIsUploading(false);
+        onSave({ ...trade, date: new Date(date).toISOString(), type, pnl: pnlValue, status, notes, tags: tagsArray, rating });
     };
 
     return (
@@ -260,19 +230,6 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                     {isTrade && (
                         <>
                             <hr className="border-gray-200 dark:border-gray-700"/>
-                            {/* Screenshot Section */}
-                            <div>
-                                <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Screenshot Chart</label>
-                                <div className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center">
-                                    {imageUrl && !imageFile && <img src={imageUrl} alt="Trade Screenshot" className="max-h-64 mx-auto rounded-md"/>}
-                                    {imageFile && <img src={URL.createObjectURL(imageFile)} alt="Preview" className="max-h-64 mx-auto rounded-md"/>}
-                                    {!imageUrl && !imageFile && <div className="text-gray-400 flex flex-col items-center justify-center h-48"><ImageIcon className="w-16 h-16 mb-2"/><p>Belum ada gambar</p></div>}
-                                    <button onClick={() => fileInputRef.current.click()} className="mt-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-md transition">
-                                        {imageUrl ? 'Ganti Gambar' : 'Pilih Gambar'}
-                                    </button>
-                                    <input type="file" accept="image/*" ref={fileInputRef} onChange={(e) => setImageFile(e.target.files[0])} className="hidden"/>
-                                </div>
-                            </div>
                             {/* Journaling Section */}
                             <div>
                                 <label htmlFor="notes" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Catatan & Alasan Trade</label>
@@ -296,9 +253,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                     )}
                 </div>
                 <div className="mt-8 flex justify-end">
-                    <button onClick={handleSave} disabled={isUploading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition disabled:opacity-50">
-                        {isUploading ? 'Menyimpan...' : 'Simpan Perubahan'}
-                    </button>
+                    <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition">Simpan Perubahan</button>
                 </div>
             </div>
         </div>
@@ -376,7 +331,7 @@ const TradingCalendar = ({ transactions, currentDate, setCurrentDate, onDayClick
         const map = {};
         transactions.forEach(tx => {
             if (tx.type === 'Buy' || tx.type === 'Sell') {
-                const tradeDate = new Date(tx.date.toDate());
+                const tradeDate = new Date(tx.date);
                 if (tradeDate.getFullYear() === year && tradeDate.getMonth() === month) {
                     const day = tradeDate.getDate();
                     if (!map[day]) {
