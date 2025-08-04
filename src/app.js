@@ -1,20 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
-// Import lengkap dari Firebase, termasuk storage
-import { db } from './firebase';
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc } from "firebase/firestore";
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+// Impor db dan storage dari file konfigurasi Firebase Anda
+import { db, storage } from './firebase'; 
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, Timestamp } from "firebase/firestore";
 
 
 // --- Helper Functions & Icons ---
 const formatCurrency = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
 const DollarSignIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
-const TrendingUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>;
-const TrendingDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>;
 const TrashIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
 const SunIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>;
 const MoonIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>;
 const TargetIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>;
-const ScaleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 16.5l4-4-4-4"></path><path d="M8 7.5l-4 4 4 4"></path><path d="M2 12h20"></path><path d="M12 2v20"></path></svg>;
 const NoteIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M8 10h.01"></path><path d="M12 10h.01"></path><path d="M16 10h.01"></path><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path></svg>;
 const StarIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
 const CloseIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
@@ -39,45 +36,69 @@ const DashboardCard = ({ title, value, icon, valueColor, subValue }) => (
 );
 
 const EquityCurveChart = ({ transactions }) => {
-    const [width, setWidth] = useState(0);
-    const [height, setHeight] = useState(0);
-    const chartRef = React.useRef(null);
-  
-    useEffect(() => {
-      if (chartRef.current) {
-        setWidth(chartRef.current.clientWidth);
-        setHeight(chartRef.current.clientHeight);
-      }
-      const handleResize = () => {
-        if (chartRef.current) {
-          setWidth(chartRef.current.clientWidth);
-          setHeight(chartRef.current.clientHeight);
-        }
-      };
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-    }, []);
-  
-    const equityValues = useMemo(() => {
-        if (transactions.length === 0) return [];
-        
-        let cumulativeEquity = 0;
-        const values = [];
-        
-        transactions.forEach(tx => {
-            cumulativeEquity += tx.pnl;
-            values.push(cumulativeEquity);
-        });
-        
-        const firstDepositIndex = transactions.findIndex(tx => tx.type === 'Deposit');
-        if(firstDepositIndex !== -1) {
-            const firstDepositAmount = transactions[firstDepositIndex].pnl;
-            return values.map(v => v + (firstDepositAmount > 0 ? 0 : firstDepositAmount));
-        }
-        
-        return values;
-    }, [transactions]);
+    const chartRef = useRef(null);
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
+    useEffect(() => {
+        const resizeObserver = new ResizeObserver(entries => {
+            if (entries && entries.length > 0) {
+                const { width, height } = entries[0].contentRect;
+                setDimensions({ width, height });
+            }
+        });
+
+        if (chartRef.current) {
+            resizeObserver.observe(chartRef.current);
+        }
+
+        return () => {
+            if (chartRef.current) {
+                resizeObserver.unobserve(chartRef.current);
+            }
+        };
+    }, []);
+
+    const equityData = useMemo(() => {
+        if (!transactions || transactions.length === 0) return { points: '', labels: [] };
+
+        const sortedTransactions = [...transactions].sort((a, b) => a.date.toDate() - b.date.toDate());
+        
+        let runningEquity = 0;
+        
+        const equityValues = [];
+        sortedTransactions.forEach(tx => {
+            runningEquity += tx.pnl;
+            equityValues.push({ equity: runningEquity, date: tx.date.toDate() });
+        });
+
+        if (equityValues.length < 2) return { points: '', labels: [] };
+
+        const { width, height } = dimensions;
+        const margin = { top: 5, right: 5, bottom: 20, left: 60 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+
+        if (innerWidth <= 0 || innerHeight <= 0) return { points: '', labels: [] };
+        
+        const equities = equityValues.map(d => d.equity);
+        const maxEquity = Math.max(...equities, 0);
+        const minEquity = Math.min(...equities, 0);
+        const range = maxEquity - minEquity;
+
+        const xScale = (index) => (index / (equityValues.length - 1)) * innerWidth;
+        const yScale = (value) => innerHeight - ((value - minEquity) / (range || 1)) * innerHeight;
+
+        const points = equityValues.map((d, index) => `${xScale(index)},${yScale(d.equity)}`).join(' ');
+        
+        const labels = [
+            { y: yScale(maxEquity), value: maxEquity },
+            { y: yScale(minEquity), value: minEquity }
+        ];
+
+        return { points, labels, margin, innerWidth, innerHeight };
+
+    }, [transactions, dimensions]);
+    
     if (transactions.length < 2) {
       return (
         <div ref={chartRef} className="w-full h-full flex items-center justify-center text-gray-500">
@@ -86,33 +107,20 @@ const EquityCurveChart = ({ transactions }) => {
       );
     }
   
-    const margin = { top: 5, right: 5, bottom: 20, left: 60 };
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
-  
-    const maxEquity = Math.max(...equityValues);
-    const minEquity = Math.min(...equityValues);
-    const range = maxEquity - minEquity;
-  
-    const xScale = (index) => (index / (equityValues.length - 1)) * innerWidth;
-    const yScale = (value) => innerHeight - ((value - minEquity) / (range || 1)) * innerHeight;
-  
-    const points = equityValues.map((equity, index) => `${xScale(index)},${yScale(equity)}`).join(' ');
-  
     const themeColor = document.documentElement.classList.contains('dark') ? "#4a5568" : "#cbd5e1";
     const textColor = document.documentElement.classList.contains('dark') ? "#a0aec0" : "#4a5568";
     
     return (
       <div ref={chartRef} className="w-full h-full">
         <svg width="100%" height="100%">
-          <g transform={`translate(${margin.left}, ${margin.top})`}>
-            <g className="axis y-axis">
-              <line x1="0" y1={yScale(maxEquity)} x2={innerWidth} y2={yScale(maxEquity)} stroke={themeColor} strokeDasharray="2,2" />
-              <text x={-10} y={yScale(maxEquity)} dy="0.32em" textAnchor="end" fill={textColor} className="text-xs">{formatCurrency(maxEquity)}</text>
-              <line x1="0" y1={yScale(minEquity)} x2={innerWidth} y2={yScale(minEquity)} stroke={themeColor} strokeDasharray="2,2" />
-              <text x={-10} y={yScale(minEquity)} dy="0.32em" textAnchor="end" fill={textColor} className="text-xs">{formatCurrency(minEquity)}</text>
-            </g>
-            <polyline fill="none" stroke="#4299e1" strokeWidth="2" points={points} />
+          <g transform={`translate(${equityData.margin?.left || 0}, ${equityData.margin?.top || 0})`}>
+            {equityData.labels.map(label => (
+                <g key={label.value}>
+                    <line x1="0" y1={label.y} x2={equityData.innerWidth} y2={label.y} stroke={themeColor} strokeDasharray="2,2" />
+                    <text x={-10} y={label.y} dy="0.32em" textAnchor="end" fill={textColor} className="text-xs">{formatCurrency(label.value)}</text>
+                </g>
+            ))}
+            <polyline fill="none" stroke="#4299e1" strokeWidth="2" points={equityData.points} />
           </g>
         </svg>
       </div>
@@ -190,14 +198,12 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
         let finalImageUrl = imageUrl;
 
         if (imageFile) {
-            const storage = getStorage();
             const storageRef = ref(storage, `screenshots/${trade.id}/${imageFile.name}`);
             try {
                 const snapshot = await uploadBytes(storageRef, imageFile);
                 finalImageUrl = await getDownloadURL(snapshot.ref);
             } catch (error) {
                 console.error("Error uploading image: ", error);
-                alert("Gagal mengunggah gambar.");
                 setIsUploading(false);
                 return;
             }
@@ -205,12 +211,10 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
 
         let pnlValue = parseFloat(pnl);
         if (isNaN(pnlValue)) {
-            alert('Jumlah/P&L harus berupa angka.');
             setIsUploading(false);
             return;
         }
         if (!date) {
-            alert('Tanggal tidak boleh kosong.');
             setIsUploading(false);
             return;
         }
@@ -223,7 +227,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
 
         const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
         const status = isTrade ? (pnlValue > 0 ? 'Win' : 'Loss') : null;
-        onSave({ ...trade, date: new Date(date), type, pnl: pnlValue, status, notes, tags: tagsArray, rating, imageUrl: finalImageUrl });
+        onSave({ ...trade, date: Timestamp.fromDate(new Date(date)), type, pnl: pnlValue, status, notes, tags: tagsArray, rating, imageUrl: finalImageUrl });
         setIsUploading(false);
     };
 
@@ -236,7 +240,6 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                 </div>
                 
                 <div className="space-y-6">
-                    {/* Edit Section */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label htmlFor="edit-date" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Tanggal</label>
@@ -260,7 +263,6 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                     {isTrade && (
                         <>
                             <hr className="border-gray-200 dark:border-gray-700"/>
-                            {/* Screenshot Section */}
                             <div>
                                 <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Screenshot Chart</label>
                                 <div className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center">
@@ -273,7 +275,6 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                                     <input type="file" accept="image/*" ref={fileInputRef} onChange={(e) => setImageFile(e.target.files[0])} className="hidden"/>
                                 </div>
                             </div>
-                            {/* Journaling Section */}
                             <div>
                                 <label htmlFor="notes" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Catatan & Alasan Trade</label>
                                 <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows="5" placeholder="Tuliskan analisis Anda, alasan masuk, dan pelajaran yang didapat..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
@@ -376,7 +377,7 @@ const TradingCalendar = ({ transactions, currentDate, setCurrentDate, onDayClick
         const map = {};
         transactions.forEach(tx => {
             if (tx.type === 'Buy' || tx.type === 'Sell') {
-                const tradeDate = new Date(tx.date.toDate());
+                const tradeDate = tx.date.toDate();
                 if (tradeDate.getFullYear() === year && tradeDate.getMonth() === month) {
                     const day = tradeDate.getDate();
                     if (!map[day]) {
@@ -426,52 +427,66 @@ const TradingCalendar = ({ transactions, currentDate, setCurrentDate, onDayClick
             <div className="mt-2 space-y-1">
                 {weeks.map((week, weekIndex) => {
                     const weeklyPnl = week.reduce((sum, dayCell) => {
-                        if (dayCell.type === 'day') {
-                            const dayData = tradesByDay[dayCell.day];
-                            return sum + (dayData ? dayData.pnl : 0);
+                        if (dayCell.type === 'day' && tradesByDay[dayCell.day]) {
+                            return sum + tradesByDay[dayCell.day].pnl;
                         }
                         return sum;
                     }, 0);
 
+                    const hasCalendarDays = week.some(cell => cell.type === 'day');
+
                     return (
                         <div className="grid grid-cols-7 gap-1" key={weekIndex}>
                             {week.map((dayCell, dayIndex) => {
-                                if (dayCell.type === 'empty') {
-                                    return <div key={`empty-${dayIndex}`}></div>;
-                                }
-                                const dayNumber = dayCell.day;
-                                const dayData = tradesByDay[dayNumber];
-                                const isToday = new Date().getDate() === dayNumber && new Date().getMonth() === month && new Date().getFullYear() === year;
-                                let bgColor = 'bg-transparent';
-                                let clickable = 'cursor-pointer'; // Make all days clickable
-                                if (dayData) {
-                                    bgColor = dayData.pnl >= 0 ? 'bg-green-500/20 hover:bg-green-500/30' : 'bg-red-500/20 hover:bg-red-500/30';
-                                }
+                                if (dayIndex < 6) {
+                                    if (dayCell.type === 'empty') {
+                                        return <div key={`empty-${weekIndex}-${dayIndex}`}></div>;
+                                    }
+                                    const dayNumber = dayCell.day;
+                                    const dayData = tradesByDay[dayNumber];
+                                    const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
+                                    const hasJournal = dailyJournals[dateString] && (dailyJournals[dateString].notes || dailyJournals[dateString].rating > 0);
+                                    const isToday = new Date().getDate() === dayNumber && new Date().getMonth() === month && new Date().getFullYear() === year;
+                                    let bgColor = 'hover:bg-gray-100 dark:hover:bg-gray-700/50';
+                                    if (dayData) {
+                                        bgColor = dayData.pnl >= 0 ? 'bg-green-500/20 hover:bg-green-500/30' : 'bg-red-500/20 hover:bg-red-500/30';
+                                    }
 
-                                if (dayIndex === 6) { // Saturday
-                                    const hasDays = week.some(d => d.type === 'day');
-                                    if (!hasDays) return <div key={`recap-empty-${dayIndex}`}></div>;
-        
                                     return (
-                                        <div key={`recap-${weekIndex}`} className={`p-1 rounded-lg text-center h-20 flex flex-col justify-center items-center ${weeklyPnl >= 0 ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-                                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Weekly</span>
-                                            <span className={`mt-1 text-sm font-bold ${weeklyPnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                        <div key={`${weekIndex}-${dayNumber}`} className={`p-1 rounded-lg text-center h-20 flex flex-col justify-start items-center transition-colors cursor-pointer relative ${bgColor}`} onClick={() => onDayClick(dayNumber)}>
+                                            {hasJournal && <NoteIcon className="w-3 h-3 text-blue-500 absolute top-1 right-1" />}
+                                            <span className={`w-6 h-6 flex items-center justify-center rounded-full text-sm ${isToday ? 'bg-blue-600 text-white' : ''}`}>{dayNumber}</span>
+                                            {dayData && (
+                                                <div className="text-center mt-1">
+                                                    <span className={`text-xs font-bold ${dayData.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                        {formatCurrency(dayData.pnl).replace(/\..*/, '')}
+                                                    </span>
+                                                    <span className="block text-gray-400 text-[10px]">{dayData.count} trade</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+                                
+                                if (dayIndex === 6) {
+                                    if (!hasCalendarDays) {
+                                        return <div key={`recap-empty-${weekIndex}`}></div>;
+                                    }
+
+                                    const recapBgColor = weeklyPnl >= 0 ? 'bg-green-500/10 dark:bg-green-900/30' : 'bg-red-500/10 dark:bg-red-900/30';
+                                    const recapTextColor = weeklyPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+
+                                    return (
+                                        <div key={`recap-${weekIndex}`} className={`p-2 rounded-lg text-center h-20 flex flex-col justify-center items-center ${recapBgColor}`}>
+                                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">P&L Minggu Ini</span>
+                                            <span className={`mt-1 text-sm font-bold ${recapTextColor}`}>
                                                 {formatCurrency(weeklyPnl)}
                                             </span>
                                         </div>
                                     );
                                 }
 
-                                return (
-                                    <div key={dayNumber} className={`p-1 rounded-lg text-center h-20 flex flex-col justify-start items-center transition-colors ${bgColor} ${clickable}`} onClick={() => onDayClick(dayNumber)}>
-                                        <span className={`w-6 h-6 flex items-center justify-center rounded-full text-sm ${isToday ? 'bg-blue-600 text-white' : ''}`}>{dayNumber}</span>
-                                        {dayData && (
-                                            <span className={`mt-1 text-xs font-bold ${dayData.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                {formatCurrency(dayData.pnl).replace(/\..*/, '')}
-                                            </span>
-                                        )}
-                                    </div>
-                                );
+                                return null;
                             })}
                         </div>
                     );
@@ -505,34 +520,32 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <h2 className="text-xl font-bold mb-4 text-center">Dasbor Analisis Lanjutan</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-                {/* Tag Performance */}
                 <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                     <h3 className="font-bold text-lg mb-4">Analisis Performa "Tags"</h3>
                     <div>
                         <h4 className="font-semibold text-green-500 mb-2">Strategi Terbaik (Top 3)</h4>
                         <ul className="space-y-2 text-sm">
-                            {tagPerformance.top3.map(tag => (
+                            {tagPerformance.top3.length > 0 ? tagPerformance.top3.map(tag => (
                                 <li key={tag.name} className="flex justify-between">
                                     <span className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-1 rounded">{tag.name}</span>
                                     <span className="font-mono">{formatCurrency(tag.pnl)}</span>
                                 </li>
-                            ))}
+                            )) : <li>Tidak ada data</li>}
                         </ul>
                     </div>
                     <hr className="my-4 border-gray-200 dark:border-gray-700"/>
                     <div>
                         <h4 className="font-semibold text-red-500 mb-2">Kesalahan Terbesar (Top 3)</h4>
                         <ul className="space-y-2 text-sm">
-                            {tagPerformance.bottom3.map(tag => (
+                             {tagPerformance.bottom3.length > 0 ? tagPerformance.bottom3.map(tag => (
                                 <li key={tag.name} className="flex justify-between">
                                     <span className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-1 rounded">{tag.name}</span>
                                     <span className="font-mono">{formatCurrency(tag.pnl)}</span>
                                 </li>
-                            ))}
+                            )) : <li>Tidak ada data</li>}
                         </ul>
                     </div>
                 </div>
-                {/* Risk & Psychology */}
                 <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                      <h3 className="font-bold text-lg mb-4">Analisis Risiko & Psikologi</h3>
                      <div className="space-y-4 text-sm">
@@ -551,7 +564,6 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
                         </div>
                      </div>
                 </div>
-                {/* Execution & Drawdown */}
                  <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                      <h3 className="font-bold text-lg mb-4">Eksekusi & Drawdown</h3>
                      <div className="space-y-2 text-sm">
@@ -578,7 +590,6 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
                         </div>
                      </div>
                 </div>
-                {/* Day Performance */}
                 <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                     <h3 className="font-bold text-lg mb-4">Performa Berdasarkan Hari</h3>
                     <div className="grid grid-cols-7 gap-2">
@@ -587,7 +598,6 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
                         ))}
                     </div>
                 </div>
-                {/* Expectancy & RRR Suggestion */}
                 <div className="lg:col-span-2 xl:col-span-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                     <h3 className="font-bold text-lg mb-4">Analisis Ekspektasi & Saran RRR</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
@@ -612,66 +622,194 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
     )
 }
 
-const DailyJournalModal = ({ date, trades, dailyJournal, onSave, onCancel }) => {
-    const [notes, setNotes] = useState(dailyJournal.notes || '');
-    const [rating, setRating] = useState(dailyJournal.rating || 0);
+const DailyDetailModal = ({ date, transactions, onClose, onTradeClick, dailyJournals, onSaveJournal }) => {
+    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const [notes, setNotes] = useState(dailyJournals[dateString]?.notes || '');
+    const [rating, setRating] = useState(dailyJournals[dateString]?.rating || 0);
+    
+    const dailyTransactions = useMemo(() => {
+        if (!date) return [];
+        return transactions.filter(tx => {
+            const txDate = tx.date.toDate();
+            return txDate.getFullYear() === date.getFullYear() &&
+                   txDate.getMonth() === date.getMonth() &&
+                   txDate.getDate() === date.getDate();
+        }).sort((a, b) => a.date.toDate() - b.date.toDate());
+    }, [transactions, date]);
 
-    const dailyPnl = trades.reduce((sum, trade) => sum + trade.pnl, 0);
+    const formattedDate = new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(date);
 
-    const handleSave = () => {
-        onSave({ notes, rating });
+    const handleSaveJournal = () => {
+        onSaveJournal(dateString, { notes, rating });
+        onClose();
     };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-full overflow-y-auto">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Jurnal Harian: {date.toLocaleDateString('id-ID')}</h2>
-                    <button onClick={onCancel} className="text-gray-500 hover:text-gray-800 dark:hover:text-white"><CloseIcon className="w-6 h-6"/></button>
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Detail Hari</h2>
+                        <p className="text-gray-500 dark:text-gray-400">{formattedDate}</p>
+                    </div>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 dark:hover:text-white"><CloseIcon className="w-6 h-6"/></button>
                 </div>
                 
                 <div className="space-y-6">
                     <div>
-                        <h3 className="font-bold text-lg mb-2">Ringkasan Hari Ini</h3>
-                        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2 text-sm">
-                            <p className="flex justify-between"><span>Total Trade:</span> <span className="font-semibold">{trades.length}</span></p>
-                            <p className="flex justify-between"><span>P&L Harian:</span> <span className={`font-semibold ${dailyPnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(dailyPnl)}</span></p>
+                        <h3 className="text-lg font-semibold mb-2">Riwayat Transaksi Hari Ini</h3>
+                        <div className="space-y-2">
+                            {dailyTransactions.length > 0 ? (
+                                dailyTransactions.map(tx => (
+                                    <div key={tx.id} onClick={() => onTradeClick(tx)} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
+                                        <div>
+                                            <span className={`font-semibold ${tx.type === 'Buy' ? 'text-green-500' : tx.type === 'Sell' ? 'text-red-500' : tx.type === 'Deposit' ? 'text-blue-500' : 'text-orange-500'}`}>{tx.type}</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">{tx.date.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <span className={`font-semibold ${tx.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</span>
+                                            {(tx.notes || (tx.tags && tx.tags.length > 0) || tx.rating > 0) && <NoteIcon className="w-4 h-4 text-blue-500 ml-3"/>}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-center text-gray-500 py-4">Tidak ada transaksi pada hari ini.</p>
+                            )}
                         </div>
-                    </div>
-
-                    <div>
-                        <h3 className="font-bold text-lg mb-2">Trade Individual</h3>
-                        <ul className="space-y-2 text-sm max-h-40 overflow-y-auto">
-                            {trades.map(trade => (
-                                <li key={trade.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                                    <span>{trade.type}</span>
-                                    <span className={trade.pnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(trade.pnl)}</span>
-                                </li>
-                            ))}
-                        </ul>
                     </div>
 
                     <hr className="border-gray-200 dark:border-gray-700"/>
-                    
+
                     <div>
-                        <label htmlFor="daily-notes" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Catatan Harian</label>
-                        <textarea id="daily-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows="5" placeholder="Apa yang terjadi di pasar hari ini? Bagaimana perasaan Anda?" className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Rating Performa Hari Ini</label>
-                        <div className="flex space-x-1">
-                            {[1, 2, 3, 4, 5].map(star => (
-                                <button key={star} onClick={() => setRating(star)} className="text-yellow-400 hover:text-yellow-500 transition">
-                                    <StarIcon className="w-8 h-8" filled={star <= rating} />
-                                </button>
-                            ))}
+                        <h3 className="text-lg font-semibold mb-2">Jurnal Harian</h3>
+                        <div>
+                            <label htmlFor="daily-notes" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Catatan Evaluasi Hari Ini</label>
+                            <textarea id="daily-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows="5" placeholder="Bagaimana performa trading Anda hari ini? Apa yang berjalan baik? Apa yang bisa diperbaiki?" className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                        </div>
+                        <div className="mt-4">
+                            <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Peringkat Hari Ini</label>
+                            <div className="flex space-x-1">
+                                {[1, 2, 3, 4, 5].map(star => (
+                                    <button key={star} onClick={() => setRating(star)} className="text-yellow-400 hover:text-yellow-500 transition">
+                                        <StarIcon className="w-8 h-8" filled={star <= rating} />
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div className="mt-8 flex justify-end">
-                    <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition">Simpan Jurnal Harian</button>
+                 <div className="mt-8 flex justify-end space-x-4">
+                    <button onClick={onClose} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-md transition">Batal</button>
+                    <button onClick={handleSaveJournal} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition">Simpan Jurnal</button>
                 </div>
             </div>
+        </div>
+    );
+};
+
+const TradeCalculator = ({ winRate, avgTradesPerDay }) => {
+    const [inputs, setInputs] = useState({
+        equity: '10000',
+        target: '12000',
+        risk: '1'
+    });
+    const [results, setResults] = useState(null);
+    const [error, setError] = useState('');
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setInputs(prev => ({ ...prev, [name]: value }));
+    };
+
+    const calculateProjections = () => {
+        const equity = parseFloat(inputs.equity);
+        const target = parseFloat(inputs.target);
+        const riskPercent = parseFloat(inputs.risk);
+
+        if (isNaN(equity) || isNaN(target) || isNaN(riskPercent) || equity <= 0 || target <= equity || riskPercent <= 0) {
+            setError('Input tidak valid. Pastikan semua angka positif dan target > modal awal.');
+            setResults(null);
+            return;
+        }
+        if (winRate === 0) {
+            setError('Win rate Anda 0%. Proyeksi tidak dapat dihitung.');
+            setResults(null);
+            return;
+        }
+        setError('');
+
+        const scenarios = [1, 2, 3].map(rr => {
+            let currentEquity = equity;
+            let tradeCount = 0;
+            const MAX_TRADES = 5000; // Safety break
+
+            const riskAmount = currentEquity * (riskPercent / 100);
+            const winAmount = riskAmount * rr;
+            const lossAmount = riskAmount;
+            const expectedGainPerTrade = (winRate * winAmount) - ((1 - winRate) * lossAmount);
+
+            if (expectedGainPerTrade <= 0) {
+                return { rr, trades: Infinity, days: Infinity };
+            }
+
+            while (currentEquity < target && tradeCount < MAX_TRADES) {
+                const risk = currentEquity * (riskPercent / 100);
+                const gain = (winRate * (risk * rr)) - ((1 - winRate) * risk);
+                currentEquity += gain;
+                tradeCount++;
+            }
+            
+            const days = avgTradesPerDay > 0 ? Math.ceil(tradeCount / avgTradesPerDay) : 0;
+            return { rr, trades: tradeCount >= MAX_TRADES ? Infinity : tradeCount, days };
+        });
+
+        setResults(scenarios);
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Modal Awal ($)</label>
+                    <input name="equity" type="number" value={inputs.equity} onChange={handleInputChange} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Target Ekuitas ($)</label>
+                    <input name="target" type="number" value={inputs.target} onChange={handleInputChange} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Risiko per Trade (%)</label>
+                    <input name="risk" type="number" value={inputs.risk} onChange={handleInputChange} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                </div>
+                <button onClick={calculateProjections} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition">Hitung Proyeksi</button>
+            </div>
+            
+            {error && <p className="text-red-500 text-center mt-4">{error}</p>}
+
+            {results && (
+                <div className="mt-6">
+                    <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        Berdasarkan Win Rate historis Anda sebesar <span className="font-bold text-blue-500">{(winRate * 100).toFixed(1)}%</span> dan rata-rata <span className="font-bold text-blue-500">{avgTradesPerDay.toFixed(1)}</span> trade per hari:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        {results.map(res => (
+                            <div key={res.rr} className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                                <h4 className="font-bold text-lg">RR 1:{res.rr}</h4>
+                                {res.trades === Infinity ? (
+                                    <p className="text-red-500 mt-2">Tidak akan tercapai dengan skenario ini.</p>
+                                ) : (
+                                    <>
+                                        <p className="text-3xl font-bold text-blue-500 my-2">{res.trades}</p>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">Total Trade</p>
+                                        <p className="text-xl font-semibold mt-3">{res.days}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">Estimasi Hari</p>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -685,7 +823,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState(() => localStorage.getItem('themeV12') || 'dark');
   const [viewingTrade, setViewingTrade] = useState(null);
-  const [viewingDay, setViewingDay] = useState(null);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
@@ -693,6 +831,7 @@ export default function App() {
   const TRADES_PER_PAGE = 10;
   const [isFormVisible, setIsFormVisible] = useState(true);
   const [isAdvancedVisible, setIsAdvancedVisible] = useState(false);
+  const [isCalculatorVisible, setIsCalculatorVisible] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
@@ -737,7 +876,7 @@ export default function App() {
         status = tx.pnl > 0 ? 'Win' : 'Loss';
     }
     const newTx = {
-      date: new Date(),
+      date: Timestamp.fromDate(new Date()),
       ...tx,
       status,
       notes: '', 
@@ -748,8 +887,16 @@ export default function App() {
     await addDoc(collection(db, "transactions"), newTx);
   };
 
-  const deleteTransaction = async (id) => {
+  const deleteTransaction = async (id, imageUrl) => {
     await deleteDoc(doc(db, "transactions", id));
+    if (imageUrl) {
+        const imageRef = ref(storage, imageUrl);
+        try {
+            await deleteObject(imageRef);
+        } catch (error) {
+            console.error("Error deleting image from storage: ", error);
+        }
+    }
   };
   
   const saveTransactionDetails = async (updatedTx) => {
@@ -759,33 +906,42 @@ export default function App() {
     setViewingTrade(null);
   };
 
-  const handleDayClick = (day) => {
-    const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    setViewingDay(clickedDate);
+  const saveDailyJournal = async (dateString, journalData) => {
+      const journalRef = doc(db, "dailyJournals", dateString);
+      await setDoc(journalRef, journalData, { merge: true });
   };
 
-  const saveDailyJournal = async (journalData) => {
-    const dateString = viewingDay.toISOString().split('T')[0]; // YYYY-MM-DD
-    const journalRef = doc(db, "dailyJournals", dateString);
-    await setDoc(journalRef, journalData);
-    setViewingDay(null);
+  const handleDayClick = (day) => {
+    const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    setSelectedCalendarDate(clickedDate);
   };
+
+  const handleOpenTradeFromCalendar = (trade) => {
+      setSelectedCalendarDate(null);
+      setViewingTrade(trade);
+  }
   
-  const { trades, dashboardStats, advancedStats, sortedTradesForChart } = useMemo(() => {
+  const { trades, dashboardStats, advancedStats } = useMemo(() => {
     const tradesOnly = transactions.filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
     const deposits = transactions.filter(tx => tx.type === 'Deposit').reduce((sum, tx) => sum + tx.pnl, 0);
     const withdrawals = transactions.filter(tx => tx.type === 'Withdrawal').reduce((sum, tx) => sum + tx.pnl, 0);
-    const startingCapital = deposits;
     
-    const totalPnl = tradesOnly.reduce((sum, t) => sum + t.pnl, 0);
-    const currentEquity = startingCapital + totalPnl + withdrawals;
-
     const chronoSortedTransactions = [...transactions].sort((a,b) => a.date.toDate() - b.date.toDate());
     const chronoSortedTrades = chronoSortedTransactions.filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
+    
+    let currentEquity = 0;
+    chronoSortedTransactions.forEach(tx => {
+        currentEquity += tx.pnl;
+    });
+
+    const totalPnl = tradesOnly.reduce((sum, t) => sum + t.pnl, 0);
     
     const winningTrades = tradesOnly.filter(t => t.status === 'Win');
     const losingTrades = tradesOnly.filter(t => t.status === 'Loss');
     const winRate = tradesOnly.length > 0 ? winningTrades.length / tradesOnly.length : 0;
+
+    const uniqueTradeDays = new Set(tradesOnly.map(t => t.date.toDate().toLocaleDateString())).size;
+    const avgTradesPerDay = uniqueTradeDays > 0 ? tradesOnly.length / uniqueTradeDays : 0;
     
     const tagMap = {};
     tradesOnly.forEach(trade => {
@@ -800,7 +956,7 @@ export default function App() {
     const tagPerformanceArray = Object.entries(tagMap).map(([name, data]) => ({ name, ...data }));
     tagPerformanceArray.sort((a, b) => b.pnl - a.pnl);
     const top3 = tagPerformanceArray.filter(t => t.pnl > 0).slice(0, 3);
-    const bottom3 = tagPerformanceArray.filter(t => t.pnl < 0).slice(-3).reverse();
+    const bottom3 = [...tagPerformanceArray.filter(t => t.pnl < 0)].reverse().slice(0, 3);
 
     let maxWinStreak = 0, currentWinStreak = 0;
     let maxLossStreak = 0, currentLossStreak = 0;
@@ -823,7 +979,7 @@ export default function App() {
     const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const dayPerformance = dayNames.reduce((acc, day) => ({...acc, [day]: {pnl: 0, count: 0}}), {});
     tradesOnly.forEach(trade => {
-        const day = dayNames[new Date(trade.date.toDate()).getDay()];
+        const day = dayNames[trade.date.toDate().getDay()];
         dayPerformance[day].pnl += trade.pnl;
         dayPerformance[day].count++;
     });
@@ -831,19 +987,18 @@ export default function App() {
     const pnlByRating1 = tradesOnly.filter(t => t.rating === 1).reduce((sum, t) => sum + t.pnl, 0);
     const pnlByRating5 = tradesOnly.filter(t => t.rating === 5).reduce((sum, t) => sum + t.pnl, 0);
     
-    let peakEquity = startingCapital;
+    let peakEquity = 0;
     let maxDrawdownValue = 0;
     let currentDrawdownDuration = 0;
     let longestDrawdownDuration = 0;
     let inDrawdown = false;
-    let cumulativePnl = 0;
+    let cumulativeEquity = 0;
     
-    chronoSortedTrades.forEach(trade => {
-        cumulativePnl += trade.pnl;
-        const currentEquityValue = startingCapital + cumulativePnl;
+    chronoSortedTransactions.forEach((trade, index) => {
+        cumulativeEquity += trade.pnl;
 
-        if (currentEquityValue > peakEquity) {
-            peakEquity = currentEquityValue;
+        if (cumulativeEquity > peakEquity) {
+            peakEquity = cumulativeEquity;
             if (inDrawdown) {
                 if (currentDrawdownDuration > longestDrawdownDuration) {
                     longestDrawdownDuration = currentDrawdownDuration;
@@ -852,12 +1007,14 @@ export default function App() {
                 inDrawdown = false;
             }
         } else {
-            const drawdown = peakEquity - currentEquityValue;
+            const drawdown = peakEquity - cumulativeEquity;
             if (drawdown > maxDrawdownValue) {
                 maxDrawdownValue = drawdown;
             }
-            inDrawdown = true;
-            currentDrawdownDuration++;
+            if (trade.type === 'Buy' || trade.type === 'Sell') {
+                if (!inDrawdown) inDrawdown = true;
+                currentDrawdownDuration++;
+            }
         }
     });
     if (inDrawdown && currentDrawdownDuration > longestDrawdownDuration) {
@@ -867,7 +1024,7 @@ export default function App() {
 
     const lossRate = 1 - winRate;
     const expectancyValue = (winRate * avgWin) - (lossRate * avgLoss);
-    const breakEvenRRR = winRate > 0 ? (1 / winRate) - 1 : 0;
+    const breakEvenRRR = winRate > 0 ? (lossRate / winRate) : 0;
     let suggestion = "Data tidak cukup untuk memberikan saran.";
     if (tradesOnly.length >= 10) {
         if (expectancyValue > 0) {
@@ -882,7 +1039,8 @@ export default function App() {
         dashboardStats: {
             totalPnl,
             currentEquity,
-            totalDeposits: deposits
+            totalDeposits: deposits,
+            totalWithdrawals: withdrawals
         },
         advancedStats: {
             tagPerformance: { top3, bottom3 },
@@ -891,17 +1049,43 @@ export default function App() {
             dayPerformance,
             ratingPerformance: { pnlByRating1, pnlByRating5 },
             drawdown: { maxDrawdownValue, maxDrawdownPercent, longestDrawdownDuration },
-            expectancy: { expectancyValue, breakEvenRRR, suggestion }
-        },
-        sortedTradesForChart: chronoSortedTrades
+            expectancy: { expectancyValue, breakEvenRRR, suggestion },
+            winRate,
+            avgTradesPerDay
+        }
     };
   }, [transactions]);
 
   const filteredAndSortedTransactions = useMemo(() => {
-    let sortable = [...transactions];
-    sortable.sort((a, b) => new Date(b.date.toDate()) - new Date(a.date.toDate()));
+    let sortable = [...transactions].filter(tx => {
+        const statusMatch = filterStatus === 'all' || tx.status === filterStatus;
+        const typeMatch = filterType === 'all' || tx.type === filterType;
+        return statusMatch && typeMatch;
+    });
+
+    sortable.sort((a, b) => {
+        if (sortConfig.key) {
+            const aValue = sortConfig.key === 'date' ? a.date.toDate() : a[sortConfig.key];
+            const bValue = sortConfig.key === 'date' ? b.date.toDate() : b[sortConfig.key];
+            if (aValue < bValue) {
+                return sortConfig.direction === 'ascending' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortConfig.direction === 'ascending' ? 1 : -1;
+            }
+        }
+        return 0;
+    });
     return sortable;
-  }, [transactions]);
+  }, [transactions, filterStatus, filterType, sortConfig]);
+
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+        direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
 
   const totalPages = Math.ceil(filteredAndSortedTransactions.length / TRADES_PER_PAGE);
   const paginatedTransactions = filteredAndSortedTransactions.slice(
@@ -911,7 +1095,7 @@ export default function App() {
 
   const monthlyStats = useMemo(() => {
     const monthTrades = trades.filter(trade => {
-        const tradeDate = new Date(trade.date.toDate());
+        const tradeDate = trade.date.toDate();
         return tradeDate.getFullYear() === currentDate.getFullYear() && tradeDate.getMonth() === currentDate.getMonth();
     });
     const total = monthTrades.length;
@@ -930,8 +1114,8 @@ export default function App() {
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold">Jurnal Trading v11.0</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Versi Final dengan Ekuitas Dinamis.</p>
+            <h1 className="text-4xl font-bold">Jurnal Trading v12.0</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Live dengan Firebase.</p>
           </div>
           <div className="flex items-center space-x-4">
             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
@@ -941,22 +1125,21 @@ export default function App() {
         </header>
 
         <main>
-            {/* Top Section: Quick Stats & Equity Curve */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <DashboardCard title="Ekuitas Saat Ini" value={formatCurrency(dashboardStats.currentEquity)} valueColor="text-blue-500" icon={<TargetIcon className="w-6 h-6 text-blue-500" />} />
                     <DashboardCard title="Total P&L (Hanya Trade)" value={formatCurrency(dashboardStats.totalPnl)} valueColor={dashboardStats.totalPnl >= 0 ? 'text-green-500' : 'text-red-500'} icon={<DollarSignIcon className="w-6 h-6 text-green-500" />} />
-                    <DashboardCard title="Total Deposit" value={formatCurrency(dashboardStats.totalDeposits)} valueColor="text-gray-800 dark:text-white" icon={<ScaleIcon className="w-6 h-6 text-yellow-500" />} />
+                    <DashboardCard title="Total Deposit" value={formatCurrency(dashboardStats.totalDeposits)} valueColor="text-yellow-500" icon={<PlusCircleIcon className="w-6 h-6 text-yellow-500" />} />
+                    <DashboardCard title="Total Withdraw" value={formatCurrency(dashboardStats.totalWithdrawals)} valueColor="text-orange-500" icon={<MinusCircleIcon className="w-6 h-6 text-orange-500" />} />
                 </div>
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                     <h3 className="font-bold text-lg mb-2">Kurva Pertumbuhan Ekuitas</h3>
                     <div className="h-48">
-                        {loading ? <p className="text-center">Memuat data grafik...</p> : <EquityCurveChart transactions={transactions.sort((a,b) => new Date(a.date.toDate()) - new Date(b.date.toDate()))} />}
+                        {loading ? <p className="text-center">Memuat data...</p> : <EquityCurveChart transactions={transactions} />}
                     </div>
                 </div>
             </div>
 
-            {/* Calendar & Monthly Stats Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 <div className="lg:col-span-2">
                     <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} />
@@ -984,16 +1167,22 @@ export default function App() {
                 </div>
             </div>
 
-            {/* Collapsible Advanced Analytics */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
-                <button onClick={() => setIsAdvancedVisible(!isAdvancedVisible)} className="w-full p-4 flex justify-between items-center">
+                <button onClick={() => setIsAdvancedVisible(!isAdvancedVisible)} className="w-full p-4 flex justify-between items-center text-left">
                     <h2 className="text-xl font-bold">Tampilkan Analisis Lanjutan</h2>
                     <ChevronDownIcon className={`w-6 h-6 transition-transform ${isAdvancedVisible ? 'rotate-180' : ''}`} />
                 </button>
                 {isAdvancedVisible && <AdvancedAnalyticsDashboard stats={advancedStats} />}
             </div>
+            
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
+                <button onClick={() => setIsCalculatorVisible(!isCalculatorVisible)} className="w-full p-4 flex justify-between items-center text-left">
+                    <h2 className="text-xl font-bold">Kalkulator Proyeksi Trading</h2>
+                    <ChevronDownIcon className={`w-6 h-6 transition-transform ${isCalculatorVisible ? 'rotate-180' : ''}`} />
+                </button>
+                {isCalculatorVisible && <TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} />}
+            </div>
 
-            {/* Main Content: Form & Table */}
             <div className="space-y-8">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
                     <div className="p-6 flex justify-between items-center">
@@ -1034,18 +1223,18 @@ export default function App() {
                         </tr>
                         </thead>
                         <tbody>
-                        {loading ? ( <tr><td colSpan="6" className="text-center p-8 text-gray-500">Memuat data trading...</td></tr> ) : paginatedTransactions.length > 0 ? (
+                        {loading ? ( <tr><td colSpan="6" className="text-center p-8 text-gray-500">Memuat data...</td></tr> ) : paginatedTransactions.length > 0 ? (
                             paginatedTransactions.map(tx => (
                             <tr key={tx.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setViewingTrade(tx)}>
                                 <td className="p-3 text-center">
                                     { (tx.notes || (tx.tags && tx.tags.length > 0) || tx.rating > 0 || tx.imageUrl) && <NoteIcon className="w-5 h-5 text-blue-500 mx-auto"/> }
                                 </td>
-                                <td className="p-3 text-gray-600 dark:text-gray-300">{tx.date.toDate().toLocaleDateString('id-ID')}</td>
+                                <td className="p-3 text-gray-600 dark:text-gray-300">{tx.date.toDate().toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                                 <td className={`p-3 font-semibold ${tx.type === 'Buy' ? 'text-green-500' : tx.type === 'Sell' ? 'text-red-500' : tx.type === 'Deposit' ? 'text-blue-500' : 'text-orange-500'}`}>{tx.type}</td>
                                 <td className={`p-3 font-semibold ${tx.status === 'Win' ? 'text-green-500' : tx.status === 'Loss' ? 'text-red-500' : ''}`}>{tx.status || '-'}</td>
                                 <td className={`p-3 font-semibold ${tx.pnl > 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</td>
                                 <td className="p-3">
-                                <button onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id); }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id, tx.imageUrl); }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button>
                                 </td>
                             </tr>
                             ))
@@ -1061,14 +1250,14 @@ export default function App() {
         </main>
         
         {viewingTrade && <TradeDetailModal trade={viewingTrade} onSave={saveTransactionDetails} onCancel={() => setViewingTrade(null)} />}
-        
-        {viewingDay && (
-            <DailyJournalModal 
-                date={viewingDay}
-                trades={transactions.filter(tx => new Date(tx.date.toDate()).toDateString() === viewingDay.toDateString() && (tx.type === 'Buy' || tx.type === 'Sell'))}
-                dailyJournal={dailyJournals[viewingDay.toISOString().split('T')[0]] || {}}
-                onSave={saveDailyJournal}
-                onCancel={() => setViewingDay(null)}
+        {selectedCalendarDate && (
+            <DailyDetailModal 
+                date={selectedCalendarDate} 
+                transactions={transactions} 
+                dailyJournals={dailyJournals}
+                onSaveJournal={saveDailyJournal}
+                onClose={() => setSelectedCalendarDate(null)}
+                onTradeClick={handleOpenTradeFromCalendar}
             />
         )}
       </div>
