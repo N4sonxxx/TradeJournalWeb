@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 // Import lengkap dari Firebase, termasuk storage
 import { db } from './firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, getDoc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
 
 
 // --- Helper Functions & Icons ---
@@ -26,6 +26,98 @@ const ChevronLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/sv
 const ChevronRightIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>;
 
 // --- Components ---
+
+const DashboardCard = ({ title, value, icon, valueColor, subValue }) => (
+  <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center transition-colors duration-300">
+    <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full mr-4">{icon}</div>
+    <div>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
+      <p className={`text-xl font-bold ${valueColor}`}>{value}</p>
+      {subValue && <p className="text-xs text-gray-400 dark:text-gray-500">{subValue}</p>}
+    </div>
+  </div>
+);
+
+const EquityCurveChart = ({ transactions }) => {
+    const [width, setWidth] = useState(0);
+    const [height, setHeight] = useState(0);
+    const chartRef = React.useRef(null);
+  
+    useEffect(() => {
+      if (chartRef.current) {
+        setWidth(chartRef.current.clientWidth);
+        setHeight(chartRef.current.clientHeight);
+      }
+      const handleResize = () => {
+        if (chartRef.current) {
+          setWidth(chartRef.current.clientWidth);
+          setHeight(chartRef.current.clientHeight);
+        }
+      };
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }, []);
+  
+    const equityValues = useMemo(() => {
+        if (transactions.length === 0) return [];
+        
+        let cumulativeEquity = 0;
+        const values = [];
+        
+        transactions.forEach(tx => {
+            cumulativeEquity += tx.pnl;
+            values.push(cumulativeEquity);
+        });
+        
+        const firstDepositIndex = transactions.findIndex(tx => tx.type === 'Deposit');
+        if(firstDepositIndex !== -1) {
+            const firstDepositAmount = transactions[firstDepositIndex].pnl;
+            return values.map(v => v + (firstDepositAmount > 0 ? 0 : firstDepositAmount));
+        }
+        
+        return values;
+    }, [transactions]);
+
+    if (transactions.length < 2) {
+      return (
+        <div ref={chartRef} className="w-full h-full flex items-center justify-center text-gray-500">
+          Butuh minimal 2 transaksi untuk menampilkan grafik
+        </div>
+      );
+    }
+  
+    const margin = { top: 5, right: 5, bottom: 20, left: 60 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+  
+    const maxEquity = Math.max(...equityValues);
+    const minEquity = Math.min(...equityValues);
+    const range = maxEquity - minEquity;
+  
+    const xScale = (index) => (index / (equityValues.length - 1)) * innerWidth;
+    const yScale = (value) => innerHeight - ((value - minEquity) / (range || 1)) * innerHeight;
+  
+    const points = equityValues.map((equity, index) => `${xScale(index)},${yScale(equity)}`).join(' ');
+  
+    const themeColor = document.documentElement.classList.contains('dark') ? "#4a5568" : "#cbd5e1";
+    const textColor = document.documentElement.classList.contains('dark') ? "#a0aec0" : "#4a5568";
+    
+    return (
+      <div ref={chartRef} className="w-full h-full">
+        <svg width="100%" height="100%">
+          <g transform={`translate(${margin.left}, ${margin.top})`}>
+            <g className="axis y-axis">
+              <line x1="0" y1={yScale(maxEquity)} x2={innerWidth} y2={yScale(maxEquity)} stroke={themeColor} strokeDasharray="2,2" />
+              <text x={-10} y={yScale(maxEquity)} dy="0.32em" textAnchor="end" fill={textColor} className="text-xs">{formatCurrency(maxEquity)}</text>
+              <line x1="0" y1={yScale(minEquity)} x2={innerWidth} y2={yScale(minEquity)} stroke={themeColor} strokeDasharray="2,2" />
+              <text x={-10} y={yScale(minEquity)} dy="0.32em" textAnchor="end" fill={textColor} className="text-xs">{formatCurrency(minEquity)}</text>
+            </g>
+            <polyline fill="none" stroke="#4299e1" strokeWidth="2" points={points} />
+          </g>
+        </svg>
+      </div>
+    );
+};
 
 const AddTransactionForm = ({ onAddTransaction }) => {
   const [type, setType] = useState('Buy');
@@ -520,14 +612,80 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
     )
 }
 
+const DailyJournalModal = ({ date, trades, dailyJournal, onSave, onCancel }) => {
+    const [notes, setNotes] = useState(dailyJournal.notes || '');
+    const [rating, setRating] = useState(dailyJournal.rating || 0);
+
+    const dailyPnl = trades.reduce((sum, trade) => sum + trade.pnl, 0);
+
+    const handleSave = () => {
+        onSave({ notes, rating });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-full overflow-y-auto">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Jurnal Harian: {date.toLocaleDateString('id-ID')}</h2>
+                    <button onClick={onCancel} className="text-gray-500 hover:text-gray-800 dark:hover:text-white"><CloseIcon className="w-6 h-6"/></button>
+                </div>
+                
+                <div className="space-y-6">
+                    <div>
+                        <h3 className="font-bold text-lg mb-2">Ringkasan Hari Ini</h3>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2 text-sm">
+                            <p className="flex justify-between"><span>Total Trade:</span> <span className="font-semibold">{trades.length}</span></p>
+                            <p className="flex justify-between"><span>P&L Harian:</span> <span className={`font-semibold ${dailyPnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(dailyPnl)}</span></p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 className="font-bold text-lg mb-2">Trade Individual</h3>
+                        <ul className="space-y-2 text-sm max-h-40 overflow-y-auto">
+                            {trades.map(trade => (
+                                <li key={trade.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                    <span>{trade.type}</span>
+                                    <span className={trade.pnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(trade.pnl)}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    <hr className="border-gray-200 dark:border-gray-700"/>
+                    
+                    <div>
+                        <label htmlFor="daily-notes" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Catatan Harian</label>
+                        <textarea id="daily-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows="5" placeholder="Apa yang terjadi di pasar hari ini? Bagaimana perasaan Anda?" className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Rating Performa Hari Ini</label>
+                        <div className="flex space-x-1">
+                            {[1, 2, 3, 4, 5].map(star => (
+                                <button key={star} onClick={() => setRating(star)} className="text-yellow-400 hover:text-yellow-500 transition">
+                                    <StarIcon className="w-8 h-8" filled={star <= rating} />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <div className="mt-8 flex justify-end">
+                    <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition">Simpan Jurnal Harian</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 // --- Main App Component ---
 
 export default function App() {
   const [transactions, setTransactions] = useState([]);
+  const [dailyJournals, setDailyJournals] = useState({});
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState(() => localStorage.getItem('themeV11') || 'dark');
+  const [theme, setTheme] = useState(() => localStorage.getItem('themeV12') || 'dark');
   const [viewingTrade, setViewingTrade] = useState(null);
+  const [viewingDay, setViewingDay] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
@@ -548,7 +706,20 @@ export default function App() {
       setTransactions(transactionsData);
       setLoading(false);
     });
-    return () => unsubscribe();
+
+    const journalsQuery = query(collection(db, "dailyJournals"));
+    const unsubJournals = onSnapshot(journalsQuery, (querySnapshot) => {
+        const journalsData = {};
+        querySnapshot.forEach((doc) => {
+            journalsData[doc.id] = doc.data();
+        });
+        setDailyJournals(journalsData);
+    });
+
+    return () => {
+        unsubscribe();
+        unsubJournals();
+    };
   }, []);
 
   useEffect(() => {
@@ -557,7 +728,7 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('themeV11', theme);
+    localStorage.setItem('themeV12', theme);
   }, [theme]);
 
   const addTransaction = async (tx) => {
@@ -586,6 +757,18 @@ export default function App() {
     const { id, ...dataToSave } = updatedTx;
     await updateDoc(txRef, dataToSave);
     setViewingTrade(null);
+  };
+
+  const handleDayClick = (day) => {
+    const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    setViewingDay(clickedDate);
+  };
+
+  const saveDailyJournal = async (journalData) => {
+    const dateString = viewingDay.toISOString().split('T')[0]; // YYYY-MM-DD
+    const journalRef = doc(db, "dailyJournals", dateString);
+    await setDoc(journalRef, journalData);
+    setViewingDay(null);
   };
   
   const { trades, dashboardStats, advancedStats, sortedTradesForChart } = useMemo(() => {
@@ -776,7 +959,7 @@ export default function App() {
             {/* Calendar & Monthly Stats Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 <div className="lg:col-span-2">
-                    <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} />
+                    <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} />
                 </div>
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-bold mb-4">Statistik Bulanan</h2>
@@ -878,6 +1061,16 @@ export default function App() {
         </main>
         
         {viewingTrade && <TradeDetailModal trade={viewingTrade} onSave={saveTransactionDetails} onCancel={() => setViewingTrade(null)} />}
+        
+        {viewingDay && (
+            <DailyJournalModal 
+                date={viewingDay}
+                trades={transactions.filter(tx => new Date(tx.date.toDate()).toDateString() === viewingDay.toDateString() && (tx.type === 'Buy' || tx.type === 'Sell'))}
+                dailyJournal={dailyJournals[viewingDay.toISOString().split('T')[0]] || {}}
+                onSave={saveDailyJournal}
+                onCancel={() => setViewingDay(null)}
+            />
+        )}
       </div>
     </div>
   );
