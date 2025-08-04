@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 // Import lengkap dari Firebase, termasuk storage
 import { db } from './firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc } from "firebase/firestore";
 
 
 // --- Helper Functions & Icons ---
