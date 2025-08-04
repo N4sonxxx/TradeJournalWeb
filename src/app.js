@@ -884,11 +884,11 @@ export default function App() {
       rating: 0,
       imageUrl: ''
     };
-    await addDoc(collection(db, "transactions"), newTx);
+    await addDoc(collection(db, "trades"), newTx);
   };
 
   const deleteTransaction = async (id, imageUrl) => {
-    await deleteDoc(doc(db, "transactions", id));
+    await deleteDoc(doc(db, "trades", id));
     if (imageUrl) {
         const imageRef = ref(storage, imageUrl);
         try {
@@ -900,7 +900,7 @@ export default function App() {
   };
   
   const saveTransactionDetails = async (updatedTx) => {
-    const txRef = doc(db, "transactions", updatedTx.id);
+    const txRef = doc(db, "trades", updatedTx.id);
     const { id, ...dataToSave } = updatedTx;
     await updateDoc(txRef, dataToSave);
     setViewingTrade(null);
@@ -1057,13 +1057,14 @@ export default function App() {
   }, [transactions]);
 
   const filteredAndSortedTransactions = useMemo(() => {
-    let sortable = [...transactions].filter(tx => {
-        const statusMatch = filterStatus === 'all' || tx.status === filterStatus;
+    return [...transactions].filter(tx => {
+        const isTrade = tx.type === 'Buy' || tx.type === 'Sell';
+        
+        const statusMatch = !isTrade || filterStatus === 'all' || tx.status === filterStatus;
         const typeMatch = filterType === 'all' || tx.type === filterType;
-        return statusMatch && typeMatch;
-    });
 
-    sortable.sort((a, b) => {
+        return statusMatch && typeMatch;
+    }).sort((a, b) => {
         if (sortConfig.key) {
             const aValue = sortConfig.key === 'date' ? a.date.toDate() : a[sortConfig.key];
             const bValue = sortConfig.key === 'date' ? b.date.toDate() : b[sortConfig.key];
@@ -1076,7 +1077,6 @@ export default function App() {
         }
         return 0;
     });
-    return sortable;
   }, [transactions, filterStatus, filterType, sortConfig]);
 
   const requestSort = (key) => {
@@ -1114,7 +1114,7 @@ export default function App() {
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold">Jurnal Trading v12.0</h1>
+            <h1 className="text-4xl font-bold">Jurnal Trading v12.1</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">Live dengan Firebase.</p>
           </div>
           <div className="flex items-center space-x-4">
@@ -1207,6 +1207,8 @@ export default function App() {
                                 <option value="all">Semua Tipe</option>
                                 <option value="Buy">Buy</option>
                                 <option value="Sell">Sell</option>
+                                <option value="Deposit">Deposit</option>
+                                <option value="Withdrawal">Withdrawal</option>
                             </select>
                         </div>
                     </div>
