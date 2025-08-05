@@ -195,40 +195,51 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
 
     const handleSave = async () => {
         setIsUploading(true);
-        let finalImageUrl = imageUrl;
+        try {
+            let finalImageUrl = imageUrl;
 
-        if (imageFile) {
-            const storageRef = ref(storage, `screenshots/${trade.id}/${imageFile.name}`);
-            try {
+            if (imageFile) {
+                const storageRef = ref(storage, `screenshots/${trade.id}/${imageFile.name}`);
                 const snapshot = await uploadBytes(storageRef, imageFile);
                 finalImageUrl = await getDownloadURL(snapshot.ref);
-            } catch (error) {
-                console.error("Error uploading image: ", error);
-                setIsUploading(false);
+            }
+
+            let pnlValue = parseFloat(pnl);
+            if (isNaN(pnlValue)) {
+                console.error('P&L must be a number.');
+                return; 
+            }
+            if (!date) {
+                console.error('Date cannot be empty.');
                 return;
             }
-        }
+            
+            if (type === 'Withdrawal') {
+                pnlValue = -Math.abs(pnlValue);
+            } else if (type === 'Deposit') {
+                pnlValue = Math.abs(pnlValue);
+            }
 
-        let pnlValue = parseFloat(pnl);
-        if (isNaN(pnlValue)) {
-            setIsUploading(false);
-            return;
-        }
-        if (!date) {
-            setIsUploading(false);
-            return;
-        }
-        
-        if (type === 'Withdrawal') {
-            pnlValue = -Math.abs(pnlValue);
-        } else if (type === 'Deposit') {
-            pnlValue = Math.abs(pnlValue);
-        }
+            const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+            const status = isTrade ? (pnlValue > 0 ? 'Win' : 'Loss') : null;
+            
+            await onSave({ 
+                ...trade, 
+                date: Timestamp.fromDate(new Date(date)), 
+                type, 
+                pnl: pnlValue, 
+                status, 
+                notes, 
+                tags: tagsArray, 
+                rating, 
+                imageUrl: finalImageUrl 
+            });
 
-        const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-        const status = isTrade ? (pnlValue > 0 ? 'Win' : 'Loss') : null;
-        onSave({ ...trade, date: Timestamp.fromDate(new Date(date)), type, pnl: pnlValue, status, notes, tags: tagsArray, rating, imageUrl: finalImageUrl });
-        setIsUploading(false);
+        } catch (error) {
+            console.error("Failed to save transaction details:", error);
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     return (
@@ -890,8 +901,8 @@ export default function App() {
   const deleteTransaction = async (id, imageUrl) => {
     await deleteDoc(doc(db, "trades", id));
     if (imageUrl) {
-        const imageRef = ref(storage, imageUrl);
         try {
+            const imageRef = ref(storage, imageUrl);
             await deleteObject(imageRef);
         } catch (error) {
             console.error("Error deleting image from storage: ", error);
@@ -900,10 +911,15 @@ export default function App() {
   };
   
   const saveTransactionDetails = async (updatedTx) => {
-    const txRef = doc(db, "trades", updatedTx.id);
-    const { id, ...dataToSave } = updatedTx;
-    await updateDoc(txRef, dataToSave);
-    setViewingTrade(null);
+    try {
+        const txRef = doc(db, "trades", updatedTx.id);
+        const { id, ...dataToSave } = updatedTx;
+        await updateDoc(txRef, dataToSave);
+    } catch (error) {
+        console.error("Error updating document: ", error);
+    } finally {
+        setViewingTrade(null);
+    }
   };
 
   const saveDailyJournal = async (dateString, journalData) => {
@@ -1266,3 +1282,4 @@ export default function App() {
     </div>
   );
 }
+" in the document "App.js - Jurnal Trading v12.1 (Perbaikan Filter & Koleksi)". I will now provide a response based on this selecti
