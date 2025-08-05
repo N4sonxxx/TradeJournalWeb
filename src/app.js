@@ -206,12 +206,10 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
 
             let pnlValue = parseFloat(pnl);
             if (isNaN(pnlValue)) {
-                console.error('P&L must be a number.');
-                return; 
+                throw new Error('P&L must be a number.');
             }
             if (!date) {
-                console.error('Date cannot be empty.');
-                return;
+                throw new Error('Date cannot be empty.');
             }
             
             if (type === 'Withdrawal') {
@@ -234,9 +232,12 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                 rating, 
                 imageUrl: finalImageUrl 
             });
+            
+            onCancel(); // Close modal on success
 
         } catch (error) {
             console.error("Failed to save transaction details:", error);
+            // Optionally show an error message to the user here
         } finally {
             setIsUploading(false);
         }
@@ -911,15 +912,9 @@ export default function App() {
   };
   
   const saveTransactionDetails = async (updatedTx) => {
-    try {
-        const txRef = doc(db, "trades", updatedTx.id);
-        const { id, ...dataToSave } = updatedTx;
-        await updateDoc(txRef, dataToSave);
-    } catch (error) {
-        console.error("Error updating document: ", error);
-    } finally {
-        setViewingTrade(null);
-    }
+    const txRef = doc(db, "trades", updatedTx.id);
+    const { id, ...dataToSave } = updatedTx;
+    await updateDoc(txRef, dataToSave);
   };
 
   const saveDailyJournal = async (dateString, journalData) => {
