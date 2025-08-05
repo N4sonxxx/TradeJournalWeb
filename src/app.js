@@ -1125,7 +1125,7 @@ export default function App() {
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold">Jurnal Trading v12.1</h1>
+            <h1 className="text-4xl font-bold">Jurnal Trading v12.2</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">Live dengan Firebase.</p>
           </div>
           <div className="flex items-center space-x-4">
