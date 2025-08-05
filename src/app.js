@@ -1282,4 +1282,3 @@ export default function App() {
     </div>
   );
 }
-" in the document "App.js - Jurnal Trading v12.1 (Perbaikan Filter & Koleksi)". I will now provide a response based on this selecti
