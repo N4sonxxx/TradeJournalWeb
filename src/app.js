@@ -237,7 +237,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
 
         } catch (error) {
             console.error("Failed to save transaction details:", error);
-            // Optionally show an error message to the user here
+            alert(`Gagal menyimpan: ${error.message}`);
         } finally {
             setIsUploading(false);
         }
