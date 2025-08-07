@@ -5,8 +5,14 @@ import { getFirestore, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 // --- Konfigurasi Firebase ---
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+// PERBAIKAN: Menggunakan environment variables untuk build lokal/produksi, dengan fallback ke variabel Canvas.
+const firebaseConfig = process.env.REACT_APP_FIREBASE_CONFIG 
+  ? JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG) 
+  : (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {});
+
+const appId = process.env.REACT_APP_ID || (typeof __app_id !== 'undefined' ? __app_id : 'default-app-id');
+const initialAuthToken = process.env.REACT_APP_INITIAL_AUTH_TOKEN || (typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null);
+
 
 // --- Ikon ---
 const DollarSignIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
