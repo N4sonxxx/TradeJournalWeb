@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-// Impor db dan storage dari file konfigurasi Firebase Anda
-import { db, storage } from './firebase'; 
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, Timestamp } from "firebase/firestore";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, query, orderBy, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+
+// --- Firebase Configuration ---
+// These variables are placeholders and will be replaced by the environment
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // --- Helper Functions & Icons ---
 const formatCurrency = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
@@ -18,7 +22,6 @@ const CloseIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" wid
 const ChevronDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"></polyline></svg>;
 const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
 const MinusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
-const ImageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>;
 const ChevronLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="15 18 9 12 15 6"></polyline></svg>;
 const ChevronRightIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>;
 
@@ -61,7 +64,7 @@ const EquityCurveChart = ({ transactions }) => {
     const equityData = useMemo(() => {
         if (!transactions || transactions.length === 0) return { points: '', labels: [] };
 
-        const sortedTransactions = [...transactions].sort((a, b) => a.date.toDate() - b.date.toDate());
+        const sortedTransactions = [...transactions].sort((a, b) => a.date.toMillis() - b.date.toMillis());
         
         let runningEquity = 0;
         
@@ -180,67 +183,35 @@ const AddTransactionForm = ({ onAddTransaction }) => {
 };
 
 const TradeDetailModal = ({ trade, onSave, onCancel }) => {
-    const [date, setDate] = useState(new Date(trade.date.toDate()).toISOString().split('T')[0]);
+    const [date, setDate] = useState(trade.date.toDate().toISOString().split('T')[0]);
     const [type, setType] = useState(trade.type);
     const [pnl, setPnl] = useState(trade.pnl);
     const [notes, setNotes] = useState(trade.notes || '');
     const [tags, setTags] = useState(trade.tags ? trade.tags.join(', ') : '');
     const [rating, setRating] = useState(trade.rating || 0);
-    const [imageFile, setImageFile] = useState(null);
-    const [isUploading, setIsUploading] = useState(false);
-    const [imageUrl, setImageUrl] = useState(trade.imageUrl || '');
-    const fileInputRef = React.useRef(null);
 
     const isTrade = type === 'Buy' || type === 'Sell';
 
-    const handleSave = async () => {
-        setIsUploading(true);
-        try {
-            let finalImageUrl = imageUrl;
-
-            if (imageFile) {
-                const storageRef = ref(storage, `screenshots/${trade.id}/${imageFile.name}`);
-                const snapshot = await uploadBytes(storageRef, imageFile);
-                finalImageUrl = await getDownloadURL(snapshot.ref);
-            }
-
-            let pnlValue = parseFloat(pnl);
-            if (isNaN(pnlValue)) {
-                throw new Error('P&L must be a number.');
-            }
-            if (!date) {
-                throw new Error('Date cannot be empty.');
-            }
-            
-            if (type === 'Withdrawal') {
-                pnlValue = -Math.abs(pnlValue);
-            } else if (type === 'Deposit') {
-                pnlValue = Math.abs(pnlValue);
-            }
-
-            const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-            const status = isTrade ? (pnlValue > 0 ? 'Win' : 'Loss') : null;
-            
-            await onSave({ 
-                ...trade, 
-                date: Timestamp.fromDate(new Date(date)), 
-                type, 
-                pnl: pnlValue, 
-                status, 
-                notes, 
-                tags: tagsArray, 
-                rating, 
-                imageUrl: finalImageUrl 
-            });
-            
-            onCancel(); // Close modal on success
-
-        } catch (error) {
-            console.error("Failed to save transaction details:", error);
-            alert(`Gagal menyimpan: ${error.message}`);
-        } finally {
-            setIsUploading(false);
+    const handleSave = () => {
+        let pnlValue = parseFloat(pnl);
+        if (isNaN(pnlValue)) {
+            console.error('Jumlah/P&L harus berupa angka.');
+            return;
         }
+        if (!date) {
+            console.error('Tanggal tidak boleh kosong.');
+            return;
+        }
+        
+        if (type === 'Withdrawal') {
+            pnlValue = -Math.abs(pnlValue);
+        } else if (type === 'Deposit') {
+            pnlValue = Math.abs(pnlValue);
+        }
+
+        const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+        const status = isTrade ? (pnlValue > 0 ? 'Win' : 'Loss') : null;
+        onSave({ ...trade, date: new Date(date), type, pnl: pnlValue, status, notes, tags: tagsArray, rating });
     };
 
     return (
@@ -276,18 +247,6 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                         <>
                             <hr className="border-gray-200 dark:border-gray-700"/>
                             <div>
-                                <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Screenshot Chart</label>
-                                <div className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center">
-                                    {imageUrl && !imageFile && <img src={imageUrl} alt="Trade Screenshot" className="max-h-64 mx-auto rounded-md"/>}
-                                    {imageFile && <img src={URL.createObjectURL(imageFile)} alt="Preview" className="max-h-64 mx-auto rounded-md"/>}
-                                    {!imageUrl && !imageFile && <div className="text-gray-400 flex flex-col items-center justify-center h-48"><ImageIcon className="w-16 h-16 mb-2"/><p>Belum ada gambar</p></div>}
-                                    <button onClick={() => fileInputRef.current.click()} className="mt-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-md transition">
-                                        {imageUrl ? 'Ganti Gambar' : 'Pilih Gambar'}
-                                    </button>
-                                    <input type="file" accept="image/*" ref={fileInputRef} onChange={(e) => setImageFile(e.target.files[0])} className="hidden"/>
-                                </div>
-                            </div>
-                            <div>
                                 <label htmlFor="notes" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Catatan & Alasan Trade</label>
                                 <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows="5" placeholder="Tuliskan analisis Anda, alasan masuk, dan pelajaran yang didapat..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
                             </div>
@@ -309,9 +268,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                     )}
                 </div>
                 <div className="mt-8 flex justify-end">
-                    <button onClick={handleSave} disabled={isUploading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition disabled:opacity-50">
-                        {isUploading ? 'Menyimpan...' : 'Simpan Perubahan'}
-                    </button>
+                    <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition">Simpan Perubahan</button>
                 </div>
             </div>
         </div>
@@ -450,55 +407,33 @@ const TradingCalendar = ({ transactions, currentDate, setCurrentDate, onDayClick
                     return (
                         <div className="grid grid-cols-7 gap-1" key={weekIndex}>
                             {week.map((dayCell, dayIndex) => {
-                                if (dayIndex < 6) {
-                                    if (dayCell.type === 'empty') {
-                                        return <div key={`empty-${weekIndex}-${dayIndex}`}></div>;
-                                    }
-                                    const dayNumber = dayCell.day;
-                                    const dayData = tradesByDay[dayNumber];
-                                    const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
-                                    const hasJournal = dailyJournals[dateString] && (dailyJournals[dateString].notes || dailyJournals[dateString].rating > 0);
-                                    const isToday = new Date().getDate() === dayNumber && new Date().getMonth() === month && new Date().getFullYear() === year;
-                                    let bgColor = 'hover:bg-gray-100 dark:hover:bg-gray-700/50';
-                                    if (dayData) {
-                                        bgColor = dayData.pnl >= 0 ? 'bg-green-500/20 hover:bg-green-500/30' : 'bg-red-500/20 hover:bg-red-500/30';
-                                    }
-
-                                    return (
-                                        <div key={`${weekIndex}-${dayNumber}`} className={`p-1 rounded-lg text-center h-20 flex flex-col justify-start items-center transition-colors cursor-pointer relative ${bgColor}`} onClick={() => onDayClick(dayNumber)}>
-                                            {hasJournal && <NoteIcon className="w-3 h-3 text-blue-500 absolute top-1 right-1" />}
-                                            <span className={`w-6 h-6 flex items-center justify-center rounded-full text-sm ${isToday ? 'bg-blue-600 text-white' : ''}`}>{dayNumber}</span>
-                                            {dayData && (
-                                                <div className="text-center mt-1">
-                                                    <span className={`text-xs font-bold ${dayData.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                        {formatCurrency(dayData.pnl).replace(/\..*/, '')}
-                                                    </span>
-                                                    <span className="block text-gray-400 text-[10px]">{dayData.count} trade</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
+                                if (dayCell.type === 'empty') {
+                                    return <div key={`empty-${weekIndex}-${dayIndex}`} className="h-20"></div>;
                                 }
-                                
-                                if (dayIndex === 6) {
-                                    if (!hasCalendarDays) {
-                                        return <div key={`recap-empty-${weekIndex}`}></div>;
-                                    }
-
-                                    const recapBgColor = weeklyPnl >= 0 ? 'bg-green-500/10 dark:bg-green-900/30' : 'bg-red-500/10 dark:bg-red-900/30';
-                                    const recapTextColor = weeklyPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-
-                                    return (
-                                        <div key={`recap-${weekIndex}`} className={`p-2 rounded-lg text-center h-20 flex flex-col justify-center items-center ${recapBgColor}`}>
-                                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">P&L Minggu Ini</span>
-                                            <span className={`mt-1 text-sm font-bold ${recapTextColor}`}>
-                                                {formatCurrency(weeklyPnl)}
-                                            </span>
-                                        </div>
-                                    );
+                                const dayNumber = dayCell.day;
+                                const dayData = tradesByDay[dayNumber];
+                                const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
+                                const hasJournal = dailyJournals[dateString] && (dailyJournals[dateString].notes || dailyJournals[dateString].rating > 0);
+                                const isToday = new Date().getDate() === dayNumber && new Date().getMonth() === month && new Date().getFullYear() === year;
+                                let bgColor = 'hover:bg-gray-100 dark:hover:bg-gray-700/50';
+                                if (dayData) {
+                                    bgColor = dayData.pnl >= 0 ? 'bg-green-500/20 hover:bg-green-500/30' : 'bg-red-500/20 hover:bg-red-500/30';
                                 }
 
-                                return null;
+                                return (
+                                    <div key={`${weekIndex}-${dayNumber}`} className={`p-1 rounded-lg text-center h-20 flex flex-col justify-start items-center transition-colors cursor-pointer relative ${bgColor}`} onClick={() => onDayClick(dayNumber)}>
+                                        {hasJournal && <NoteIcon className="w-3 h-3 text-blue-500 absolute top-1 right-1" />}
+                                        <span className={`w-6 h-6 flex items-center justify-center rounded-full text-sm ${isToday ? 'bg-blue-600 text-white' : ''}`}>{dayNumber}</span>
+                                        {dayData && (
+                                            <div className="text-center mt-1">
+                                                <span className={`text-xs font-bold ${dayData.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                    {formatCurrency(dayData.pnl).replace(/\..*/, '')}
+                                                </span>
+                                                <span className="block text-gray-400 text-[10px]">{dayData.count} trade</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
                             })}
                         </div>
                     );
@@ -509,7 +444,7 @@ const TradingCalendar = ({ transactions, currentDate, setCurrentDate, onDayClick
 };
 
 const AdvancedAnalyticsDashboard = ({ stats }) => {
-    const { tagPerformance, streaks, dayPerformance, avgWinLossRatio, ratingPerformance, drawdown, expectancy } = stats;
+    const { tagPerformance, streaks, dayPerformance, avgWinLossRatio, ratingPerformance, drawdown, expectancy, positionAnalysis } = stats;
 
     const Bar = ({ label, value, maxValue, color }) => {
         const heightPercentage = maxValue > 0 ? (Math.abs(value) / maxValue) * 100 : 0;
@@ -573,6 +508,28 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
                         <div className="flex justify-between items-center">
                             <span>Rasio Rata-rata Profit/Loss</span>
                             <span className={`font-bold text-2xl ${avgWinLossRatio >= 1.5 ? 'text-green-500' : 'text-yellow-500'}`}>{avgWinLossRatio.toFixed(2)} : 1</span>
+                        </div>
+                     </div>
+                </div>
+                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                     <h3 className="font-bold text-lg mb-4">Analisis Posisi Long/Short</h3>
+                     <div className="space-y-4 text-sm">
+                        <div className="flex justify-between items-center">
+                            <span>Total Trade Long (Buy)</span>
+                            <span className="font-bold text-2xl">{positionAnalysis.totalLong}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span>Win Rate Long</span>
+                            <span className="font-bold text-2xl text-green-500">{(positionAnalysis.longWinRate * 100).toFixed(1)}%</span>
+                        </div>
+                        <hr className="my-2 border-gray-200 dark:border-gray-700"/>
+                        <div className="flex justify-between items-center">
+                            <span>Total Trade Short (Sell)</span>
+                            <span className="font-bold text-2xl">{positionAnalysis.totalShort}</span>
+                        </div>
+                         <div className="flex justify-between items-center">
+                            <span>Win Rate Short</span>
+                            <span className="font-bold text-2xl text-green-500">{(positionAnalysis.shortWinRate * 100).toFixed(1)}%</span>
                         </div>
                      </div>
                 </div>
@@ -646,7 +603,7 @@ const DailyDetailModal = ({ date, transactions, onClose, onTradeClick, dailyJour
             return txDate.getFullYear() === date.getFullYear() &&
                    txDate.getMonth() === date.getMonth() &&
                    txDate.getDate() === date.getDate();
-        }).sort((a, b) => a.date.toDate() - b.date.toDate());
+        }).sort((a, b) => a.date.toMillis() - b.date.toMillis());
     }, [transactions, date]);
 
     const formattedDate = new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(date);
@@ -830,9 +787,13 @@ const TradeCalculator = ({ winRate, avgTradesPerDay }) => {
 // --- Main App Component ---
 
 export default function App() {
+  const [db, setDb] = useState(null);
+  const [auth, setAuth] = useState(null);
+  const [userId, setUserId] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [dailyJournals, setDailyJournals] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [theme, setTheme] = useState(() => localStorage.getItem('themeV12') || 'dark');
   const [viewingTrade, setViewingTrade] = useState(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
@@ -846,33 +807,84 @@ export default function App() {
   const [isCalculatorVisible, setIsCalculatorVisible] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  // --- Firebase Initialization and Auth ---
   useEffect(() => {
-    setLoading(true);
-    const q = query(collection(db, "trades"), orderBy("date", "desc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const transactionsData = [];
-      querySnapshot.forEach((doc) => {
-        transactionsData.push({ ...doc.data(), id: doc.id });
-      });
-      setTransactions(transactionsData);
-      setLoading(false);
-    });
+    if (Object.keys(firebaseConfig).length > 0) {
+        try {
+            const app = initializeApp(firebaseConfig);
+            const authInstance = getAuth(app);
+            const dbInstance = getFirestore(app);
+            setLogLevel('debug');
+            setDb(dbInstance);
+            setAuth(authInstance);
 
-    const journalsQuery = query(collection(db, "dailyJournals"));
-    const unsubJournals = onSnapshot(journalsQuery, (querySnapshot) => {
-        const journalsData = {};
-        querySnapshot.forEach((doc) => {
-            journalsData[doc.id] = doc.data();
-        });
-        setDailyJournals(journalsData);
-    });
-
-    return () => {
-        unsubscribe();
-        unsubJournals();
-    };
+            const unsubscribe = onAuthStateChanged(authInstance, async (user) => {
+                if (user) {
+                    setUserId(user.uid);
+                } else {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(authInstance, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(authInstance);
+                        }
+                    } catch (error) {
+                        console.error("Error during sign-in:", error);
+                        setIsLoading(false);
+                    }
+                }
+            });
+            return () => unsubscribe();
+        } catch (error) {
+            console.error("Error initializing Firebase:", error);
+            setIsLoading(false);
+        }
+    } else {
+        console.log("Firebase config is not available.");
+        setIsLoading(false);
+    }
   }, []);
 
+  // --- Firestore Data Fetching ---
+  useEffect(() => {
+    if (db && userId) {
+        setIsLoading(true);
+        const transactionsPath = `artifacts/${appId}/users/${userId}/transactions`;
+        const q = query(collection(db, transactionsPath), orderBy('date', 'desc'));
+        
+        const unsubscribeTransactions = onSnapshot(q, (querySnapshot) => {
+            const transactionsData = querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                date: doc.data().date.toDate ? doc.data().date : serverTimestamp(),
+            }));
+            setTransactions(transactionsData);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching transactions:", error);
+            setIsLoading(false);
+        });
+
+        const journalsPath = `artifacts/${appId}/users/${userId}/dailyJournals`;
+        const unsubscribeJournals = onSnapshot(collection(db, journalsPath), (querySnapshot) => {
+            const journalsData = {};
+            querySnapshot.forEach((doc) => {
+                journalsData[doc.id] = doc.data();
+            });
+            setDailyJournals(journalsData);
+        }, (error) => {
+            console.error("Error fetching daily journals:", error);
+        });
+
+        return () => {
+            unsubscribeTransactions();
+            unsubscribeJournals();
+        };
+    }
+  }, [db, userId]);
+
+
+  // --- Theme Management ---
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -882,44 +894,59 @@ export default function App() {
     localStorage.setItem('themeV12', theme);
   }, [theme]);
 
+  // --- CRUD Operations ---
   const addTransaction = async (tx) => {
+    if (!db || !userId) return;
     let status = null;
     if (tx.type === 'Buy' || tx.type === 'Sell') {
         status = tx.pnl > 0 ? 'Win' : 'Loss';
     }
     const newTx = {
-      date: Timestamp.fromDate(new Date()),
       ...tx,
+      date: new Date(),
       status,
       notes: '', 
       tags: [], 
-      rating: 0,
-      imageUrl: ''
+      rating: 0 
     };
-    await addDoc(collection(db, "trades"), newTx);
+    try {
+        const transactionsPath = `artifacts/${appId}/users/${userId}/transactions`;
+        await addDoc(collection(db, transactionsPath), newTx);
+    } catch (error) {
+        console.error("Error adding transaction: ", error);
+    }
   };
 
-  const deleteTransaction = async (id, imageUrl) => {
-    await deleteDoc(doc(db, "trades", id));
-    if (imageUrl) {
-        try {
-            const imageRef = ref(storage, imageUrl);
-            await deleteObject(imageRef);
-        } catch (error) {
-            console.error("Error deleting image from storage: ", error);
-        }
+  const deleteTransaction = async (id) => {
+    if (!db || !userId) return;
+    try {
+        const docRef = doc(db, `artifacts/${appId}/users/${userId}/transactions`, id);
+        await deleteDoc(docRef);
+    } catch (error) {
+        console.error("Error deleting transaction: ", error);
     }
   };
   
   const saveTransactionDetails = async (updatedTx) => {
-    const txRef = doc(db, "trades", updatedTx.id);
+    if (!db || !userId) return;
     const { id, ...dataToSave } = updatedTx;
-    await updateDoc(txRef, dataToSave);
+    try {
+        const docRef = doc(db, `artifacts/${appId}/users/${userId}/transactions`, id);
+        await updateDoc(docRef, dataToSave);
+        setViewingTrade(null);
+    } catch (error) {
+        console.error("Error updating transaction: ", error);
+    }
   };
 
   const saveDailyJournal = async (dateString, journalData) => {
-      const journalRef = doc(db, "dailyJournals", dateString);
-      await setDoc(journalRef, journalData, { merge: true });
+    if (!db || !userId) return;
+    try {
+        const docRef = doc(db, `artifacts/${appId}/users/${userId}/dailyJournals`, dateString);
+        await setDoc(docRef, journalData, { merge: true });
+    } catch (error) {
+        console.error("Error saving daily journal: ", error);
+    }
   };
 
   const handleDayClick = (day) => {
@@ -933,11 +960,17 @@ export default function App() {
   }
   
   const { trades, dashboardStats, advancedStats } = useMemo(() => {
-    const tradesOnly = transactions.filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
-    const deposits = transactions.filter(tx => tx.type === 'Deposit').reduce((sum, tx) => sum + tx.pnl, 0);
-    const withdrawals = transactions.filter(tx => tx.type === 'Withdrawal').reduce((sum, tx) => sum + tx.pnl, 0);
+    // Convert Firestore Timestamps to JS Dates for calculations
+    const processedTransactions = transactions.map(tx => ({
+        ...tx,
+        date: tx.date instanceof Date ? tx.date : (tx.date && tx.date.toDate ? tx.date.toDate() : new Date())
+    }));
+
+    const tradesOnly = processedTransactions.filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
+    const deposits = processedTransactions.filter(tx => tx.type === 'Deposit').reduce((sum, tx) => sum + tx.pnl, 0);
+    const withdrawals = processedTransactions.filter(tx => tx.type === 'Withdrawal').reduce((sum, tx) => sum + tx.pnl, 0);
     
-    const chronoSortedTransactions = [...transactions].sort((a,b) => a.date.toDate() - b.date.toDate());
+    const chronoSortedTransactions = [...processedTransactions].sort((a,b) => a.date - b.date);
     const chronoSortedTrades = chronoSortedTransactions.filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
     
     let currentEquity = 0;
@@ -951,7 +984,14 @@ export default function App() {
     const losingTrades = tradesOnly.filter(t => t.status === 'Loss');
     const winRate = tradesOnly.length > 0 ? winningTrades.length / tradesOnly.length : 0;
 
-    const uniqueTradeDays = new Set(tradesOnly.map(t => t.date.toDate().toLocaleDateString())).size;
+    const longTrades = tradesOnly.filter(t => t.type === 'Buy');
+    const shortTrades = tradesOnly.filter(t => t.type === 'Sell');
+    const longWins = longTrades.filter(t => t.status === 'Win').length;
+    const shortWins = shortTrades.filter(t => t.status === 'Win').length;
+    const longWinRate = longTrades.length > 0 ? (longWins / longTrades.length) : 0;
+    const shortWinRate = shortTrades.length > 0 ? (shortWins / shortTrades.length) : 0;
+
+    const uniqueTradeDays = new Set(tradesOnly.map(t => t.date.toLocaleDateString())).size;
     const avgTradesPerDay = uniqueTradeDays > 0 ? tradesOnly.length / uniqueTradeDays : 0;
     
     const tagMap = {};
@@ -990,7 +1030,7 @@ export default function App() {
     const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const dayPerformance = dayNames.reduce((acc, day) => ({...acc, [day]: {pnl: 0, count: 0}}), {});
     tradesOnly.forEach(trade => {
-        const day = dayNames[trade.date.toDate().getDay()];
+        const day = dayNames[trade.date.getDay()];
         dayPerformance[day].pnl += trade.pnl;
         dayPerformance[day].count++;
     });
@@ -1062,32 +1102,39 @@ export default function App() {
             drawdown: { maxDrawdownValue, maxDrawdownPercent, longestDrawdownDuration },
             expectancy: { expectancyValue, breakEvenRRR, suggestion },
             winRate,
-            avgTradesPerDay
+            avgTradesPerDay,
+            positionAnalysis: {
+                totalLong: longTrades.length,
+                longWinRate,
+                totalShort: shortTrades.length,
+                shortWinRate,
+            },
         }
     };
   }, [transactions]);
 
   const filteredAndSortedTransactions = useMemo(() => {
-    return [...transactions].filter(tx => {
-        const isTrade = tx.type === 'Buy' || tx.type === 'Sell';
-        
-        const statusMatch = !isTrade || filterStatus === 'all' || tx.status === filterStatus;
+    let sortable = [...transactions].filter(tx => {
+        const statusMatch = filterStatus === 'all' || tx.status === filterStatus || (filterStatus === 'Win' && tx.pnl > 0) || (filterStatus === 'Loss' && tx.pnl <= 0);
         const typeMatch = filterType === 'all' || tx.type === filterType;
-
         return statusMatch && typeMatch;
-    }).sort((a, b) => {
-        if (sortConfig.key) {
-            const aValue = sortConfig.key === 'date' ? a.date.toDate() : a[sortConfig.key];
-            const bValue = sortConfig.key === 'date' ? b.date.toDate() : b[sortConfig.key];
-            if (aValue < bValue) {
-                return sortConfig.direction === 'ascending' ? -1 : 1;
-            }
-            if (aValue > bValue) {
-                return sortConfig.direction === 'ascending' ? 1 : -1;
-            }
+    });
+
+    sortable.sort((a, b) => {
+        if (sortConfig.key === 'date') {
+            const aDate = a.date?.toMillis() || 0;
+            const bDate = b.date?.toMillis() || 0;
+            if (aDate < bDate) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (aDate > bDate) return sortConfig.direction === 'ascending' ? 1 : -1;
+        } else if (sortConfig.key) {
+            const aValue = a[sortConfig.key];
+            const bValue = b[sortConfig.key];
+            if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
         }
         return 0;
     });
+    return sortable;
   }, [transactions, filterStatus, filterType, sortConfig]);
 
   const requestSort = (key) => {
@@ -1106,7 +1153,7 @@ export default function App() {
 
   const monthlyStats = useMemo(() => {
     const monthTrades = trades.filter(trade => {
-        const tradeDate = trade.date.toDate();
+        const tradeDate = trade.date;
         return tradeDate.getFullYear() === currentDate.getFullYear() && tradeDate.getMonth() === currentDate.getMonth();
     });
     const total = monthTrades.length;
@@ -1119,14 +1166,21 @@ export default function App() {
     return { total, wins, losses, winRate, totalProfit, totalLoss, netPnl };
   }, [trades, currentDate]);
 
+  if (isLoading) {
+      return (
+          <div className="bg-gray-100 dark:bg-gray-900 min-h-screen flex items-center justify-center">
+              <div className="text-white text-xl">Memuat data jurnal...</div>
+          </div>
+      )
+  }
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white min-h-screen font-sans p-4 sm:p-6 lg:p-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold">Jurnal Trading v12.2</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Live dengan Firebase.</p>
+            <h1 className="text-4xl font-bold">Jurnal Trading v12.0</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Live dengan Database Firebase.</p>
           </div>
           <div className="flex items-center space-x-4">
             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
@@ -1146,7 +1200,7 @@ export default function App() {
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                     <h3 className="font-bold text-lg mb-2">Kurva Pertumbuhan Ekuitas</h3>
                     <div className="h-48">
-                        {loading ? <p className="text-center">Memuat data...</p> : <EquityCurveChart transactions={transactions} />}
+                        <EquityCurveChart transactions={transactions} />
                     </div>
                 </div>
             </div>
@@ -1183,7 +1237,7 @@ export default function App() {
                     <h2 className="text-xl font-bold">Tampilkan Analisis Lanjutan</h2>
                     <ChevronDownIcon className={`w-6 h-6 transition-transform ${isAdvancedVisible ? 'rotate-180' : ''}`} />
                 </button>
-                {isAdvancedVisible && <AdvancedAnalyticsDashboard stats={advancedStats} />}
+                {isAdvancedVisible && <div className="border-t border-gray-200 dark:border-gray-700"><AdvancedAnalyticsDashboard stats={advancedStats} /></div>}
             </div>
             
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
@@ -1191,7 +1245,7 @@ export default function App() {
                     <h2 className="text-xl font-bold">Kalkulator Proyeksi Trading</h2>
                     <ChevronDownIcon className={`w-6 h-6 transition-transform ${isCalculatorVisible ? 'rotate-180' : ''}`} />
                 </button>
-                {isCalculatorVisible && <TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} />}
+                {isCalculatorVisible && <div className="border-t border-gray-200 dark:border-gray-700"><TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} /></div>}
             </div>
 
             <div className="space-y-8">
@@ -1236,18 +1290,18 @@ export default function App() {
                         </tr>
                         </thead>
                         <tbody>
-                        {loading ? ( <tr><td colSpan="6" className="text-center p-8 text-gray-500">Memuat data...</td></tr> ) : paginatedTransactions.length > 0 ? (
+                        {paginatedTransactions.length > 0 ? (
                             paginatedTransactions.map(tx => (
                             <tr key={tx.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setViewingTrade(tx)}>
                                 <td className="p-3 text-center">
-                                    { (tx.notes || (tx.tags && tx.tags.length > 0) || tx.rating > 0 || tx.imageUrl) && <NoteIcon className="w-5 h-5 text-blue-500 mx-auto"/> }
+                                    { (tx.notes || (tx.tags && tx.tags.length > 0) || tx.rating > 0) && <NoteIcon className="w-5 h-5 text-blue-500 mx-auto"/> }
                                 </td>
-                                <td className="p-3 text-gray-600 dark:text-gray-300">{tx.date.toDate().toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                                <td className="p-3 text-gray-600 dark:text-gray-300">{tx.date.toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                                 <td className={`p-3 font-semibold ${tx.type === 'Buy' ? 'text-green-500' : tx.type === 'Sell' ? 'text-red-500' : tx.type === 'Deposit' ? 'text-blue-500' : 'text-orange-500'}`}>{tx.type}</td>
                                 <td className={`p-3 font-semibold ${tx.status === 'Win' ? 'text-green-500' : tx.status === 'Loss' ? 'text-red-500' : ''}`}>{tx.status || '-'}</td>
-                                <td className={`p-3 font-semibold ${tx.pnl > 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</td>
+                                <td className={`p-3 font-semibold ${tx.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</td>
                                 <td className="p-3">
-                                <button onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id, tx.imageUrl); }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); if(window.confirm('Anda yakin ingin menghapus transaksi ini?')) { deleteTransaction(tx.id); } }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button>
                                 </td>
                             </tr>
                             ))
