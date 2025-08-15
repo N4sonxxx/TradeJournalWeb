@@ -1,16 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-const db = null; 
-const storage = null;
-// Mock Firebase functions for preview purposes
-const mockFirebase = {
-    collection: () => {}, query: () => {}, orderBy: () => {}, onSnapshot: () => (() => {}),
-    addDoc: async () => {}, doc: () => {}, updateDoc: async () => {}, deleteDoc: async () => {},
-    setDoc: async () => {}, Timestamp: { fromDate: (date) => date },
-    getStorage: () => {}, ref: () => {}, uploadBytes: async () => ({ ref: '' }),
-    getDownloadURL: async () => '', deleteObject: async () => {}
-};
-const { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, Timestamp } = db ? require('firebase/firestore') : mockFirebase;
-const { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } = storage ? require('firebase/storage') : mockFirebase;
+
+// --- Firebase Imports ---
+// This code now assumes you have a correctly configured 'firebase.js' file.
+import { db, storage } from './firebase';
+import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, Timestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 
 // --- Helper Functions & Icons ---
@@ -214,7 +208,9 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
             let finalImageUrl = imageUrl;
 
             if (imageFile) {
-                finalImageUrl = URL.createObjectURL(imageFile); 
+                const storageRef = ref(storage, `screenshots/${trade.id}/${imageFile.name}`);
+                const snapshot = await uploadBytes(storageRef, imageFile);
+                finalImageUrl = await getDownloadURL(snapshot.ref);
             }
 
             let pnlValue = parseFloat(pnl);
@@ -229,10 +225,9 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
             
             await onSave({ 
                 ...trade, 
-                date: createTimestamp(new Date(date)), 
+                date: Timestamp.fromDate(new Date(date)), 
                 type, pnl: pnlValue, status, notes, 
-                tags: tagsArray, rating, imageUrl: finalImageUrl,
-                _imageFile: imageFile 
+                tags: tagsArray, rating, imageUrl: finalImageUrl
             });
             
             onCancel();
@@ -897,9 +892,37 @@ export default function App() {
     if (savedSettings) {
         setSettings(JSON.parse(savedSettings));
     }
-    setTransactions(initialTransactions);
-    setDailyJournals(initialDailyJournals);
-    setLoading(false);
+    
+    if (!db) {
+        console.warn("Firebase is not configured. App will not connect to a database.");
+        setLoading(false);
+        return;
+    }
+
+    setLoading(true);
+    const q = query(collection(db, "trades"), orderBy("date", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const transactionsData = [];
+      querySnapshot.forEach((doc) => {
+        transactionsData.push({ ...doc.data(), id: doc.id });
+      });
+      setTransactions(transactionsData);
+      setLoading(false);
+    });
+
+    const journalsQuery = query(collection(db, "dailyJournals"));
+    const unsubJournals = onSnapshot(journalsQuery, (querySnapshot) => {
+        const journalsData = {};
+        querySnapshot.forEach((doc) => {
+            journalsData[doc.id] = doc.data();
+        });
+        setDailyJournals(journalsData);
+    });
+
+    return () => {
+        unsubscribe();
+        unsubJournals();
+    };
   }, []);
 
   useEffect(() => {
@@ -914,15 +937,43 @@ export default function App() {
       setIsSettingsModalOpen(false);
   };
 
-  const addTransaction = (tx) => {
+  const addTransaction = async (tx) => {
     const status = (tx.type === 'Buy' || tx.type === 'Sell') ? (tx.pnl > 0 ? 'Win' : 'Loss') : null;
-    const newTx = { id: `tx_${new Date().getTime()}`, date: createTimestamp(new Date()), ...tx, status, notes: '', tags: [], rating: 0, imageUrl: '' };
-    setTransactions(prev => [newTx, ...prev]);
+    const newTx = { 
+        ...tx,
+        date: Timestamp.fromDate(new Date()), 
+        status, 
+        notes: '', 
+        tags: [], 
+        rating: 0,
+        imageUrl: ''
+    };
+    await addDoc(collection(db, "trades"), newTx);
   };
 
-  const deleteTransaction = (id) => setTransactions(prev => prev.filter(tx => tx.id !== id));
-  const saveTransactionDetails = (updatedTx) => setTransactions(prev => prev.map(tx => tx.id === updatedTx.id ? updatedTx : tx));
-  const saveDailyJournal = (dateString, journalData) => setDailyJournals(prev => ({...prev, [dateString]: journalData}));
+  const deleteTransaction = async (id, imageUrl) => {
+    await deleteDoc(doc(db, "trades", id));
+    if (imageUrl) {
+        try {
+            const imageRef = ref(storage, imageUrl);
+            await deleteObject(imageRef);
+        } catch (error) {
+            console.error("Error deleting image from storage: ", error);
+        }
+    }
+  };
+  
+  const saveTransactionDetails = async (updatedTx) => {
+    const txRef = doc(db, "trades", updatedTx.id);
+    const { id, ...dataToSave } = updatedTx;
+    await updateDoc(txRef, dataToSave);
+  };
+
+  const saveDailyJournal = async (dateString, journalData) => {
+     const journalRef = doc(db, "dailyJournals", dateString);
+     await setDoc(journalRef, journalData, { merge: true });
+  };
+
   const handleDayClick = (dateObject) => setSelectedCalendarDate(dateObject);
   const handleOpenTradeFromCalendar = (trade) => { setSelectedCalendarDate(null); setViewingTrade(trade); };
   
@@ -1059,7 +1110,7 @@ export default function App() {
         <header className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-4xl font-bold">Trading Journal</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Local Preview Mode</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Live Mode</p>
           </div>
           <div className="flex items-center space-x-4">
             <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"><SettingsIcon className="w-6 h-6" /></button>
@@ -1145,7 +1196,7 @@ export default function App() {
                                 <td className={`p-3 font-semibold ${tx.type === 'Buy' ? 'text-green-500' : tx.type === 'Sell' ? 'text-red-500' : tx.type === 'Deposit' ? 'text-blue-500' : 'text-orange-500'}`}>{tx.type}</td>
                                 <td className={`p-3 font-semibold ${tx.status === 'Win' ? 'text-green-500' : tx.status === 'Loss' ? 'text-red-500' : ''}`}>{tx.status || '-'}</td>
                                 <td className={`p-3 font-semibold ${tx.pnl > 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</td>
-                                <td className="p-3"><button onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id); }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button></td>
+                                <td className="p-3"><button onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id, tx.imageUrl); }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button></td>
                             </tr>
                             ))
                         ) : (<tr><td colSpan="6" className="text-center p-8">No matching data found.</td></tr>)}
