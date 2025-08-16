@@ -2,29 +2,48 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 // --- Firebase Imports ---
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, Timestamp } from "firebase/firestore";
+import { 
+    getAuth, 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    signOut, 
+    onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+    getFirestore, 
+    collection, 
+    query, 
+    onSnapshot, 
+    addDoc, 
+    doc, 
+    updateDoc, 
+    deleteDoc, 
+    setDoc, 
+    Timestamp, 
+    orderBy 
+} from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 // --- Firebase Configuration ---
-// This configuration is taken from your provided firebase.js file.
 const firebaseConfig = {
     apiKey: "AIzaSyDJTS2-XcoJCIR3OYDTE2-oqsUjorA4P-M",
     authDomain: "jurnal-trading-saya.firebaseapp.com",
     projectId: "jurnal-trading-saya",
-    storageBucket: "jurnal-trading-saya.appspot.com", // Corrected storage bucket format
+    storageBucket: "jurnal-trading-saya.appspot.com",
     messagingSenderId: "55282716936",
     appId: "1:55282716936:web:0d631d8ada6f89c7411cbd",
     measurementId: "G-BZ0D0MZXJV"
 };
 
-// Initialize Firebase
+// --- Initialize Firebase Services ---
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
-
+const auth = getAuth(app);
 
 // --- Helper Functions & Icons ---
 const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
+const CalendarIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
 const DollarSignIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
 const TrashIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
 const SunIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>;
@@ -47,7 +66,7 @@ const ClipboardCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000
 const PercentIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="19" y1="5" x2="5" y2="19"></line><circle cx="6.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></svg>;
 const BullIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 8h2a2 2 0 0 1 2 2v2M8 8H6a2 2 0 0 0-2 2v2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
 const BearIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 16h2a2 2 0 0 0 2-2v-2M8 16H6a2 2 0 0 1-2-2v-2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
-
+const LogOutIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
 
 // --- Components ---
 
@@ -80,6 +99,7 @@ const EquityCurveChart = ({ transactions }) => {
 
         return () => {
             if (chartRef.current) {
+                // eslint-disable-next-line react-hooks/exhaustive-deps
                 resizeObserver.unobserve(chartRef.current);
             }
         };
@@ -253,7 +273,6 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
 
         } catch (error) {
             console.error("Failed to save transaction details:", error);
-            alert(`Failed to save: ${error.message}`);
         } finally {
             setIsUploading(false);
         }
@@ -540,7 +559,7 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
                     <div>
                         <h4 className="font-semibold text-red-500 mb-2">Biggest Mistakes (Top 3)</h4>
                         <ul className="space-y-2 text-sm">
-                               {tagPerformance.bottom3.length > 0 ? tagPerformance.bottom3.map(tag => (<li key={tag.name} className="flex justify-between"><span className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-1 rounded">{tag.name}</span><span className="font-mono">{formatCurrency(tag.pnl)}</span></li>)) : <li>No data</li>}
+                                {tagPerformance.bottom3.length > 0 ? tagPerformance.bottom3.map(tag => (<li key={tag.name} className="flex justify-between"><span className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-1 rounded">{tag.name}</span><span className="font-mono">{formatCurrency(tag.pnl)}</span></li>)) : <li>No data</li>}
                         </ul>
                     </div>
                 </div>
@@ -935,10 +954,8 @@ const DailyBiasSetter = ({ todayBias, onSaveBias }) => {
     );
 };
 
-
-// --- Main App Component ---
-
-export default function App() {
+// --- Main Trading Journal Component (Refactored from App) ---
+function TradingJournal({ user, handleLogout }) {
   const [transactions, setTransactions] = useState([]);
   const [dailyJournals, setDailyJournals] = useState({});
   const [loading, setLoading] = useState(true);
@@ -963,19 +980,17 @@ export default function App() {
   const [isCalculatorVisible, setIsCalculatorVisible] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Effect to load settings from localStorage and fetch data from Firebase
+  // Effect to fetch user-specific data from Firebase
   useEffect(() => {
-    const savedSettings = localStorage.getItem('tradingJournalSettings');
-    if (savedSettings) {
-        try {
-            setSettings(JSON.parse(savedSettings));
-        } catch (e) {
-            console.error("Could not parse settings from localStorage", e);
-        }
-    }
+    if (!user) return; // Don't fetch if no user is logged in
     
     setLoading(true);
-    const q = query(collection(db, "trades"), orderBy("date", "desc"));
+    
+    // User-specific collection paths
+    const tradesCollectionPath = `users/${user.uid}/trades`;
+    const journalsCollectionPath = `users/${user.uid}/dailyJournals`;
+
+    const q = query(collection(db, tradesCollectionPath), orderBy("date", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const transactionsData = [];
       querySnapshot.forEach((doc) => {
@@ -988,7 +1003,7 @@ export default function App() {
         setLoading(false);
     });
 
-    const journalsQuery = query(collection(db, "dailyJournals"));
+    const journalsQuery = query(collection(db, journalsCollectionPath));
     const unsubJournals = onSnapshot(journalsQuery, (querySnapshot) => {
         const journalsData = {};
         querySnapshot.forEach((doc) => {
@@ -1003,7 +1018,7 @@ export default function App() {
         unsubscribe();
         unsubJournals();
     };
-  }, []);
+  }, [user]); // Rerun effect if user changes
 
   // Effect to handle theme changes
   useEffect(() => {
@@ -1018,12 +1033,13 @@ export default function App() {
   // Function to save settings to localStorage
   const saveSettings = (newSettings) => {
       setSettings(newSettings);
-      localStorage.setItem('tradingJournalSettings', JSON.stringify(newSettings));
+      // Could also save settings to Firestore under the user's profile
       setIsSettingsModalOpen(false);
   };
 
-  // Function to add a new transaction to Firestore
+  // --- Firestore Data Manipulation Functions ---
   const addTransaction = async (tx) => {
+    const tradesCollectionPath = `users/${user.uid}/trades`;
     const status = (tx.type === 'Buy' || tx.type === 'Sell') ? (tx.pnl >= 0 ? 'Win' : 'Loss') : null;
     const newTx = { 
         ...tx,
@@ -1035,16 +1051,16 @@ export default function App() {
         imageUrl: ''
     };
     try {
-        await addDoc(collection(db, "trades"), newTx);
+        await addDoc(collection(db, tradesCollectionPath), newTx);
     } catch (error) {
         console.error("Error adding transaction: ", error);
     }
   };
 
-  // Function to delete a transaction from Firestore and its associated image from Storage
   const deleteTransaction = async (id, imageUrl) => {
+    const tradesCollectionPath = `users/${user.uid}/trades`;
     try {
-        await deleteDoc(doc(db, "trades", id));
+        await deleteDoc(doc(db, tradesCollectionPath, id));
         if (imageUrl) {
             const imageRef = ref(storage, imageUrl);
             await deleteObject(imageRef);
@@ -1054,9 +1070,9 @@ export default function App() {
     }
   };
   
-  // Function to update a transaction in Firestore
   const saveTransactionDetails = async (updatedTx) => {
-    const txRef = doc(db, "trades", updatedTx.id);
+    const tradesCollectionPath = `users/${user.uid}/trades`;
+    const txRef = doc(db, tradesCollectionPath, updatedTx.id);
     const { id, ...dataToSave } = updatedTx;
     try {
         await updateDoc(txRef, dataToSave);
@@ -1065,14 +1081,14 @@ export default function App() {
     }
   };
 
-  // Function to save a daily journal entry to Firestore
   const saveDailyJournal = async (dateString, journalData) => {
-     const journalRef = doc(db, "dailyJournals", dateString);
-     try {
-         await setDoc(journalRef, journalData, { merge: true });
-     } catch (error) {
+      const journalsCollectionPath = `users/${user.uid}/dailyJournals`;
+      const journalRef = doc(db, journalsCollectionPath, dateString);
+      try {
+           await setDoc(journalRef, journalData, { merge: true });
+      } catch (error) {
         console.error("Error saving daily journal: ", error);
-     }
+      }
   };
 
   const handleDayClick = (dateObject) => setSelectedCalendarDate(dateObject);
@@ -1088,7 +1104,6 @@ export default function App() {
     let currentEquity = 0;
     chronoSortedTransactions.forEach(tx => { currentEquity += tx.pnl; });
 
-    // Daily Stats Calculation for the actual current day
     const todayStr = new Date().toDateString();
     const todaysTrades = transactions.filter(tx => (tx.type === 'Buy' || tx.type === 'Sell') && tx.date.toDate().toDateString() === todayStr);
     const todaysPnl = todaysTrades.reduce((sum, tx) => sum + tx.pnl, 0);
@@ -1268,11 +1283,12 @@ export default function App() {
         <header className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-4xl font-bold">Trading Journal</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Live Mode</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">{user.email}</p>
           </div>
           <div className="flex items-center space-x-4">
             <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"><SettingsIcon className="w-6 h-6" /></button>
             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">{theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}</button>
+            <button onClick={handleLogout} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"><LogOutIcon className="w-6 h-6" /></button>
           </div>
         </header>
 
@@ -1288,7 +1304,7 @@ export default function App() {
                 </div>
                 <ConsistencyTracker dailyStats={dailyStats} settings={settings} />
             </div>
-
+            
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-bold mb-4">Equity Curve</h2>
@@ -1392,4 +1408,119 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+// --- Authentication Page Component ---
+function AuthPage() {
+    const [isLogin, setIsLogin] = useState(true);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        try {
+            if (isLogin) {
+                await signInWithEmailAndPassword(auth, email, password);
+            } else {
+                await createUserWithEmailAndPassword(auth, email, password);
+            }
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    return (
+        <div className="bg-gray-100 dark:bg-gray-900 min-h-screen flex items-center justify-center">
+            <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                <div>
+                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+                        {isLogin ? 'Sign in to your account' : 'Create a new account'}
+                    </h2>
+                </div>
+                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                    <div className="rounded-md shadow-sm -space-y-px">
+                        <div>
+                            <label htmlFor="email-address" className="sr-only">Email address</label>
+                            <input
+                                id="email-address"
+                                name="email"
+                                type="email"
+                                autoComplete="email"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-700 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                placeholder="Email address"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="password" className="sr-only">Password</label>
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                autoComplete="current-password"
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-700 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                placeholder="Password"
+                            />
+                        </div>
+                    </div>
+
+                    {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+
+                    <div>
+                        <button
+                            type="submit"
+                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            {isLogin ? 'Sign in' : 'Register'}
+                        </button>
+                    </div>
+                </form>
+                <div className="text-sm text-center">
+                    <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+                        {isLogin ? 'Need an account? Register' : 'Have an account? Sign in'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+// --- Top-Level App Component ---
+export default function App() {
+    const [user, setUser] = useState(null);
+    const [loadingAuth, setLoadingAuth] = useState(true);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser);
+            setLoadingAuth(false);
+        });
+        return () => unsubscribe(); // Cleanup subscription on unmount
+    }, []);
+
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error("Error signing out: ", error);
+        }
+    };
+
+    if (loadingAuth) {
+        return (
+            <div className="bg-gray-100 dark:bg-gray-900 min-h-screen flex items-center justify-center">
+                <p className="text-gray-500 dark:text-gray-400">Loading...</p>
+            </div>
+        );
+    }
+
+    return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
