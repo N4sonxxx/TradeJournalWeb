@@ -1,10 +1,26 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 // --- Firebase Imports ---
-// This code now assumes you have a correctly configured 'firebase.js' file.
-import { db, storage } from './firebase';
-import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, Timestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, Timestamp } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+
+// --- Firebase Configuration ---
+// This configuration is taken from your provided firebase.js file.
+const firebaseConfig = {
+    apiKey: "AIzaSyDJTS2-XcoJCIR3OYDTE2-oqsUjorA4P-M",
+    authDomain: "jurnal-trading-saya.firebaseapp.com",
+    projectId: "jurnal-trading-saya",
+    storageBucket: "jurnal-trading-saya.appspot.com", // Corrected storage bucket format
+    messagingSenderId: "55282716936",
+    appId: "1:55282716936:web:0d631d8ada6f89c7411cbd",
+    measurementId: "G-BZ0D0MZXJV"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
 
 
 // --- Helper Functions & Icons ---
@@ -24,11 +40,14 @@ const ImageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" wid
 const ChevronLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="15 18 9 12 15 6"></polyline></svg>;
 const ChevronRightIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>;
 const SettingsIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
-const CheckCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>;
-const AlertTriangleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>;
-const XCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>;
+const CheckCircleIcon = ({ className, style }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>;
+const AlertTriangleIcon = ({ className, style }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>;
+const XCircleIcon = ({ className, style }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>;
 const ClipboardCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="m9 14 2 2 4-4"></path></svg>;
 const PercentIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="19" y1="5" x2="5" y2="19"></line><circle cx="6.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></svg>;
+const BullIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 8h2a2 2 0 0 1 2 2v2M8 8H6a2 2 0 0 0-2 2v2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
+const BearIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 16h2a2 2 0 0 0 2-2v-2M8 16H6a2 2 0 0 1-2-2v-2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
+
 
 // --- Components ---
 
@@ -221,7 +240,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
             else if (type === 'Deposit') pnlValue = Math.abs(pnlValue);
 
             const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-            const status = isTrade ? (pnlValue > 0 ? 'Win' : 'Loss') : null;
+            const status = isTrade ? (pnlValue >= 0 ? 'Win' : 'Loss') : null;
             
             await onSave({ 
                 ...trade, 
@@ -368,7 +387,7 @@ const ConsistencyIcon = ({ status }) => {
 };
 
 const TradingCalendar = ({ transactions, currentDate, setCurrentDate, onDayClick, dailyJournals, consistencyByDay }) => {
-    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Weekly'];
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
     const year = currentDate.getFullYear();
@@ -434,7 +453,7 @@ const TradingCalendar = ({ transactions, currentDate, setCurrentDate, onDayClick
                                     const recapBgColor = weeklyPnl >= 0 ? 'bg-green-500/10 dark:bg-green-900/30' : 'bg-red-500/10 dark:bg-red-900/30';
                                     const recapTextColor = weeklyPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
                                     return (
-                                        <div key={dayCell.toISOString()} className={`p-2 rounded-lg text-center h-20 flex flex-col justify-center items-center ${recapBgColor}`}>
+                                        <div key={`weekly-${weekIndex}`} className={`p-1 rounded-lg text-center h-20 flex flex-col justify-center items-center transition-colors ${recapBgColor}`}>
                                             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Weekly P&L</span>
                                             <span className={`mt-1 text-sm font-bold ${recapTextColor}`}>{formatCurrency(weeklyPnl)}</span>
                                         </div>
@@ -445,7 +464,7 @@ const TradingCalendar = ({ transactions, currentDate, setCurrentDate, onDayClick
                                 const isCurrentMonth = dayCell.getMonth() === month;
                                 const dateString = `${dayCell.getFullYear()}-${String(dayCell.getMonth() + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
                                 const dayData = tradesByDay[dateString];
-                                const hasJournal = dailyJournals[dateString] && (dailyJournals[dateString].notes || dailyJournals[dateString].rating > 0);
+                                const hasJournal = dailyJournals[dateString] && (dailyJournals[dateString].notes || dailyJournals[dateString].rating > 0 || dailyJournals[dateString].bias);
                                 const consistencyStatus = consistencyByDay[dateString];
                                 const isToday = new Date().toDateString() === dayCell.toDateString();
                                 
@@ -475,7 +494,7 @@ const TradingCalendar = ({ transactions, currentDate, setCurrentDate, onDayClick
             <div className="mt-4 flex justify-center items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
                 <div className="flex items-center space-x-1"><CheckCircleIcon className="w-4 h-4 text-green-500" /><span>Disciplined</span></div>
                 <div className="flex items-center space-x-1"><AlertTriangleIcon className="w-4 h-4 text-yellow-500" /><span>Overtraded</span></div>
-                <div className="flex items-center space-x-1"><XCircleIcon className="w-4 h-4 text-red-500" /><span>Limit Hit</span></div>
+                <div className="flex items-center space-x-1"><XCircleIcon className="w-4 h-4 text-red-500" /><span>Loss Exceeded</span></div>
             </div>
         </div>
     );
@@ -562,6 +581,7 @@ const DailyDetailModal = ({ date, transactions, onClose, onTradeClick, dailyJour
     const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const [notes, setNotes] = useState(dailyJournals[dateString]?.notes || '');
     const [rating, setRating] = useState(dailyJournals[dateString]?.rating || 0);
+    const [biasOutcome, setBiasOutcome] = useState(dailyJournals[dateString]?.biasOutcome || null);
     
     const dailyTransactions = useMemo(() => {
         if (!date) return [];
@@ -574,9 +594,13 @@ const DailyDetailModal = ({ date, transactions, onClose, onTradeClick, dailyJour
     const formattedDate = new Intl.DateTimeFormat('en-US', { dateStyle: 'full' }).format(date);
 
     const handleSaveJournal = () => {
-        onSaveJournal(dateString, { notes, rating });
+        const currentJournal = dailyJournals[dateString] || {};
+        onSaveJournal(dateString, { ...currentJournal, notes, rating, biasOutcome });
         onClose();
     };
+    
+    const dailyBias = dailyJournals[dateString]?.bias;
+    const dailyReason = dailyJournals[dateString]?.reason;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
@@ -601,7 +625,18 @@ const DailyDetailModal = ({ date, transactions, onClose, onTradeClick, dailyJour
                     </div>
                     <hr className="border-gray-200 dark:border-gray-700"/>
                     <div>
-                        <h3 className="text-lg font-semibold mb-2">Daily Journal</h3>
+                        <h3 className="text-lg font-semibold mb-2">Daily Journal & Bias</h3>
+                        {dailyBias && (
+                            <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Daily Bias: <span className={dailyBias === 'bullish' ? 'text-green-500' : 'text-red-500'}>{dailyBias.charAt(0).toUpperCase() + dailyBias.slice(1)}</span></p>
+                                <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">Reason: {dailyReason || 'No reason provided.'}</p>
+                                <div className="mt-2">
+                                    <span className="text-sm font-bold text-gray-600 dark:text-gray-400 mr-3">Bias Outcome:</span>
+                                    <button onClick={() => setBiasOutcome('correct')} className={`px-2 py-1 text-xs rounded ${biasOutcome === 'correct' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>Correct</button>
+                                    <button onClick={() => setBiasOutcome('incorrect')} className={`ml-2 px-2 py-1 text-xs rounded ${biasOutcome === 'incorrect' ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>Incorrect</button>
+                                </div>
+                            </div>
+                        )}
                         <div><label htmlFor="daily-notes" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Today's Evaluation Notes</label><textarea id="daily-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows="5" placeholder="How was your trading performance today? What went well? What could be improved?" className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea></div>
                         <div className="mt-4"><label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Rate Today's Performance</label><div className="flex space-x-1">{[1, 2, 3, 4, 5].map(star => (<button key={star} onClick={() => setRating(star)} className="text-yellow-400 hover:text-yellow-500 transition"><StarIcon className="w-8 h-8" filled={star <= rating} /></button>))}</div></div>
                     </div>
@@ -859,6 +894,47 @@ const TradeConfirmationModal = ({ onCancel }) => {
     );
 };
 
+const DailyBiasSetter = ({ todayBias, onSaveBias }) => {
+    const [reason, setReason] = useState(todayBias.reason || '');
+
+    useEffect(() => {
+        setReason(todayBias.reason || '');
+    }, [todayBias.reason]);
+
+    const handleSave = () => {
+        onSaveBias({ ...todayBias, reason });
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <h3 className="font-bold text-lg mb-4">Daily Bias Setter</h3>
+            <div className="space-y-4">
+                <div className="flex justify-around">
+                    <button onClick={() => onSaveBias({ ...todayBias, bias: 'bullish' })} className={`p-4 rounded-lg w-full mr-2 transition ${todayBias.bias === 'bullish' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                        <BullIcon className="w-8 h-8 mx-auto" />
+                        <span className="text-sm font-semibold">Bullish</span>
+                    </button>
+                    <button onClick={() => onSaveBias({ ...todayBias, bias: 'bearish' })} className={`p-4 rounded-lg w-full ml-2 transition ${todayBias.bias === 'bearish' ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                        <BearIcon className="w-8 h-8 mx-auto" />
+                        <span className="text-sm font-semibold">Bearish</span>
+                    </button>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Reason for Bias</label>
+                    <textarea 
+                        value={reason} 
+                        onChange={(e) => setReason(e.target.value)}
+                        onBlur={handleSave} // Save when user clicks away
+                        rows="3" 
+                        placeholder="Why this bias?" 
+                        className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 // --- Main App Component ---
 
@@ -885,20 +961,19 @@ export default function App() {
   const [isFormVisible, setIsFormVisible] = useState(true);
   const [isAdvancedVisible, setIsAdvancedVisible] = useState(false);
   const [isCalculatorVisible, setIsCalculatorVisible] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date('2025-08-01'));
+  const [currentDate, setCurrentDate] = useState(new Date());
 
+  // Effect to load settings from localStorage and fetch data from Firebase
   useEffect(() => {
     const savedSettings = localStorage.getItem('tradingJournalSettings');
     if (savedSettings) {
-        setSettings(JSON.parse(savedSettings));
+        try {
+            setSettings(JSON.parse(savedSettings));
+        } catch (e) {
+            console.error("Could not parse settings from localStorage", e);
+        }
     }
     
-    if (!db) {
-        console.warn("Firebase is not configured. App will not connect to a database.");
-        setLoading(false);
-        return;
-    }
-
     setLoading(true);
     const q = query(collection(db, "trades"), orderBy("date", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -908,6 +983,9 @@ export default function App() {
       });
       setTransactions(transactionsData);
       setLoading(false);
+    }, (error) => {
+        console.error("Error fetching trades:", error);
+        setLoading(false);
     });
 
     const journalsQuery = query(collection(db, "dailyJournals"));
@@ -917,6 +995,8 @@ export default function App() {
             journalsData[doc.id] = doc.data();
         });
         setDailyJournals(journalsData);
+    }, (error) => {
+        console.error("Error fetching daily journals:", error);
     });
 
     return () => {
@@ -925,20 +1005,26 @@ export default function App() {
     };
   }, []);
 
+  // Effect to handle theme changes
   useEffect(() => {
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
     localStorage.setItem('themeV12', theme);
   }, [theme]);
   
+  // Function to save settings to localStorage
   const saveSettings = (newSettings) => {
       setSettings(newSettings);
       localStorage.setItem('tradingJournalSettings', JSON.stringify(newSettings));
       setIsSettingsModalOpen(false);
   };
 
+  // Function to add a new transaction to Firestore
   const addTransaction = async (tx) => {
-    const status = (tx.type === 'Buy' || tx.type === 'Sell') ? (tx.pnl > 0 ? 'Win' : 'Loss') : null;
+    const status = (tx.type === 'Buy' || tx.type === 'Sell') ? (tx.pnl >= 0 ? 'Win' : 'Loss') : null;
     const newTx = { 
         ...tx,
         date: Timestamp.fromDate(new Date()), 
@@ -948,30 +1034,45 @@ export default function App() {
         rating: 0,
         imageUrl: ''
     };
-    await addDoc(collection(db, "trades"), newTx);
+    try {
+        await addDoc(collection(db, "trades"), newTx);
+    } catch (error) {
+        console.error("Error adding transaction: ", error);
+    }
   };
 
+  // Function to delete a transaction from Firestore and its associated image from Storage
   const deleteTransaction = async (id, imageUrl) => {
-    await deleteDoc(doc(db, "trades", id));
-    if (imageUrl) {
-        try {
+    try {
+        await deleteDoc(doc(db, "trades", id));
+        if (imageUrl) {
             const imageRef = ref(storage, imageUrl);
             await deleteObject(imageRef);
-        } catch (error) {
-            console.error("Error deleting image from storage: ", error);
         }
+    } catch (error) {
+        console.error("Error deleting transaction: ", error);
     }
   };
   
+  // Function to update a transaction in Firestore
   const saveTransactionDetails = async (updatedTx) => {
     const txRef = doc(db, "trades", updatedTx.id);
     const { id, ...dataToSave } = updatedTx;
-    await updateDoc(txRef, dataToSave);
+    try {
+        await updateDoc(txRef, dataToSave);
+    } catch (error) {
+        console.error("Error updating transaction: ", error);
+    }
   };
 
+  // Function to save a daily journal entry to Firestore
   const saveDailyJournal = async (dateString, journalData) => {
      const journalRef = doc(db, "dailyJournals", dateString);
-     await setDoc(journalRef, journalData, { merge: true });
+     try {
+         await setDoc(journalRef, journalData, { merge: true });
+     } catch (error) {
+        console.error("Error saving daily journal: ", error);
+     }
   };
 
   const handleDayClick = (dateObject) => setSelectedCalendarDate(dateObject);
@@ -987,7 +1088,7 @@ export default function App() {
     let currentEquity = 0;
     chronoSortedTransactions.forEach(tx => { currentEquity += tx.pnl; });
 
-    // Daily Stats Calculation for Today
+    // Daily Stats Calculation for the actual current day
     const todayStr = new Date().toDateString();
     const todaysTrades = transactions.filter(tx => (tx.type === 'Buy' || tx.type === 'Sell') && tx.date.toDate().toDateString() === todayStr);
     const todaysPnl = todaysTrades.reduce((sum, tx) => sum + tx.pnl, 0);
@@ -997,12 +1098,11 @@ export default function App() {
     const dailyStats = {
         pnl: todaysPnl,
         tradeCount: todaysTrades.length,
-        profitTargetHit: todaysPnl >= profitTargetValue,
+        profitTargetHit: profitTargetValue > 0 && todaysPnl >= profitTargetValue,
         lossLimitHit: todaysPnl <= lossLimitValue,
         maxTradesHit: todaysTrades.length >= settings.maxTradesPerDay,
     };
 
-    // --- NEW: Consistency Calculation for all days ---
     const calculateConsistencyForDay = (dailyTrades, settings) => {
         if (dailyTrades.length === 0) return 'NO_TRADES';
         const dailyPnl = dailyTrades.reduce((sum, tx) => sum + tx.pnl, 0);
@@ -1010,9 +1110,9 @@ export default function App() {
         const lossLimit = -Math.abs((settings.startingEquity * settings.dailyLossLimit) / 100);
 
         if (dailyPnl <= lossLimit) return 'LOSS_LIMIT_HIT';
-        if (dailyPnl >= profitTarget) return 'PROFIT_TARGET_HIT';
+        if (profitTarget > 0 && dailyPnl >= profitTarget) return 'PROFIT_TARGET_HIT';
         if (dailyTrades.length > settings.maxTradesPerDay) {
-            return dailyPnl > 0 ? 'OVERTRADED_WIN' : 'OVERTRADED_LOSS';
+            return dailyPnl >= 0 ? 'OVERTRADED_WIN' : 'OVERTRADED_LOSS';
         }
         return dailyPnl >= 0 ? 'DISCIPLINED_WIN' : 'DISCIPLINED_LOSS';
     };
@@ -1029,7 +1129,6 @@ export default function App() {
         const dailyTrades = tradesByDate[dateStr].filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
         consistencyByDay[dateStr] = calculateConsistencyForDay(dailyTrades, settings);
     }
-    // --- End of new calculation ---
 
     const totalPnl = tradesOnly.reduce((sum, t) => sum + t.pnl, 0);
     const winningTrades = tradesOnly.filter(t => t.status === 'Win');
@@ -1053,7 +1152,24 @@ export default function App() {
     const pnlByRating1 = tradesOnly.filter(t => t.rating === 1).reduce((sum, t) => sum + t.pnl, 0);
     const pnlByRating5 = tradesOnly.filter(t => t.rating === 5).reduce((sum, t) => sum + t.pnl, 0);
     let peakEquity = 0, maxDrawdownValue = 0, currentDrawdownDuration = 0, longestDrawdownDuration = 0, inDrawdown = false, cumulativeEquity = 0;
-    chronoSortedTransactions.forEach(trade => { cumulativeEquity += trade.pnl; if (cumulativeEquity > peakEquity) { peakEquity = cumulativeEquity; if (inDrawdown) { if (currentDrawdownDuration > longestDrawdownDuration) longestDrawdownDuration = currentDrawdownDuration; currentDrawdownDuration = 0; inDrawdown = false; } } else { const drawdown = peakEquity - cumulativeEquity; if (drawdown > maxDrawdownValue) maxDrawdownValue = drawdown; if (trade.type === 'Buy' || trade.type === 'Sell') { if (!inDrawdown) inDrawdown = true; currentDrawdownDuration++; } } });
+    chronoSortedTransactions.forEach(trade => { 
+        cumulativeEquity += trade.pnl; 
+        if (cumulativeEquity > peakEquity) { 
+            peakEquity = cumulativeEquity; 
+            if (inDrawdown) { 
+                if (currentDrawdownDuration > longestDrawdownDuration) longestDrawdownDuration = currentDrawdownDuration; 
+                currentDrawdownDuration = 0; 
+                inDrawdown = false; 
+            } 
+        } else { 
+            const drawdown = peakEquity - cumulativeEquity; 
+            if (drawdown > maxDrawdownValue) maxDrawdownValue = drawdown; 
+            if (trade.type === 'Buy' || trade.type === 'Sell') { 
+                if (!inDrawdown) inDrawdown = true; 
+                currentDrawdownDuration++; 
+            } 
+        } 
+    });
     if (inDrawdown && currentDrawdownDuration > longestDrawdownDuration) longestDrawdownDuration = currentDrawdownDuration;
     const maxDrawdownPercent = peakEquity > 0 ? (maxDrawdownValue / peakEquity) * 100 : 0;
     const lossRate = 1 - winRate;
@@ -1069,7 +1185,7 @@ export default function App() {
         dailyStats,
         consistencyByDay
     };
-  }, [transactions, settings]);
+  }, [transactions, settings, dailyJournals]);
 
   const filteredAndSortedTransactions = useMemo(() => {
     return [...transactions]
@@ -1095,14 +1211,56 @@ export default function App() {
 
   const monthlyStats = useMemo(() => {
     const monthTrades = trades.filter(t => { const d = t.date.toDate(); return d.getFullYear() === currentDate.getFullYear() && d.getMonth() === currentDate.getMonth(); });
-    const total = monthTrades.length, wins = monthTrades.filter(t => t.status === 'Win').length, losses = total - wins;
+    const total = monthTrades.length;
+    const wins = monthTrades.filter(t => t.status === 'Win').length;
+    const losses = total - wins;
     const winRate = total > 0 ? (wins / total) * 100 : 0;
     const totalProfit = monthTrades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
     const totalLoss = monthTrades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0);
-    return { total, wins, losses, winRate, totalProfit, totalLoss, netPnl: totalProfit + totalLoss };
-  }, [trades, currentDate]);
+    
+    let biasCorrect = 0;
+    let biasIncorrect = 0;
+    let disciplinedDays = 0;
+    let overtradedDays = 0;
+    let lossExceededDays = 0;
+
+    const monthDays = new Set(monthTrades.map(t => t.date.toDate().toISOString().split('T')[0]));
+    
+    monthDays.forEach(dateStr => {
+        const status = consistencyByDay[dateStr];
+        switch(status) {
+            case 'PROFIT_TARGET_HIT':
+            case 'DISCIPLINED_WIN':
+            case 'DISCIPLINED_LOSS':
+                disciplinedDays++;
+                break;
+            case 'OVERTRADED_WIN':
+            case 'OVERTRADED_LOSS':
+                overtradedDays++;
+                break;
+            case 'LOSS_LIMIT_HIT':
+                lossExceededDays++;
+                break;
+            default:
+                break;
+        }
+    });
+
+    Object.entries(dailyJournals).forEach(([dateStr, journal]) => {
+        const journalDate = new Date(dateStr);
+        if(journalDate.getFullYear() === currentDate.getFullYear() && journalDate.getMonth() === currentDate.getMonth()){
+            if(journal.biasOutcome === 'correct') biasCorrect++;
+            if(journal.biasOutcome === 'incorrect') biasIncorrect++;
+        }
+    });
+
+    return { total, wins, losses, winRate, totalProfit, totalLoss, netPnl: totalProfit + totalLoss, biasCorrect, biasIncorrect, disciplinedDays, overtradedDays, lossExceededDays };
+  }, [trades, currentDate, dailyJournals, consistencyByDay]);
 
   const isTradingDisabled = dailyStats.profitTargetHit || dailyStats.lossLimitHit || dailyStats.maxTradesHit;
+  
+  const todayString = new Date().toISOString().split('T')[0];
+  const todayBias = dailyJournals[todayString] || {};
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white min-h-screen font-sans p-4 sm:p-6 lg:p-8 transition-colors duration-300">
@@ -1126,13 +1284,17 @@ export default function App() {
                     <DashboardCard title="Win Rate" value={`${(dashboardStats.winRate * 100).toFixed(1)}%`} valueColor="text-indigo-500" icon={<PercentIcon className="w-6 h-6 text-indigo-500" />} subValue={`${dashboardStats.totalTrades} trades`} />
                     <DashboardCard title="Total Deposits" value={formatCurrency(dashboardStats.totalDeposits)} valueColor="text-yellow-500" icon={<PlusCircleIcon className="w-6 h-6 text-yellow-500" />} />
                     <DashboardCard title="Total Withdrawals" value={formatCurrency(dashboardStats.totalWithdrawals)} valueColor="text-orange-500" icon={<MinusCircleIcon className="w-6 h-6 text-orange-500" />} />
+                    <DailyBiasSetter todayBias={todayBias} onSaveBias={(biasData) => saveDailyJournal(todayString, biasData)} />
                 </div>
                 <ConsistencyTracker dailyStats={dailyStats} settings={settings} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                <div className="lg:col-span-2">
-                    <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} consistencyByDay={consistencyByDay} />
+                <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-bold mb-4">Equity Curve</h2>
+                    <div className="h-64">
+                       <EquityCurveChart transactions={transactions} />
+                    </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-bold mb-4">Monthly Stats</h2>
@@ -1149,7 +1311,22 @@ export default function App() {
                         <p className="flex justify-between"><span>Losing Trades:</span> <span className="font-semibold">{monthlyStats.losses}</span></p>
                         <p className="flex justify-between"><span>Win Rate:</span> <span className="font-semibold">{monthlyStats.winRate.toFixed(1)}%</span></p>
                     </div>
+                    <hr className="my-4 border-gray-200 dark:border-gray-700"/>
+                    <div className="space-y-3 text-sm">
+                        <p className="flex justify-between"><span>Bias Correct:</span> <span className="font-semibold text-green-500">{monthlyStats.biasCorrect}</span></p>
+                        <p className="flex justify-between"><span>Bias Incorrect:</span> <span className="font-semibold text-red-500">{monthlyStats.biasIncorrect}</span></p>
+                    </div>
+                    <hr className="my-4 border-gray-200 dark:border-gray-700"/>
+                    <div className="space-y-3 text-sm">
+                        <p className="flex justify-between"><span>Disciplined Days:</span> <span className="font-semibold text-green-500">{monthlyStats.disciplinedDays}</span></p>
+                        <p className="flex justify-between"><span>Overtraded Days:</span> <span className="font-semibold text-yellow-500">{monthlyStats.overtradedDays}</span></p>
+                        <p className="flex justify-between"><span>Loss Exceeded Days:</span> <span className="font-semibold text-red-500">{monthlyStats.lossExceededDays}</span></p>
+                    </div>
                 </div>
+            </div>
+            
+            <div className="mb-8">
+                <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} consistencyByDay={consistencyByDay} />
             </div>
             
             <div className="mb-8">
@@ -1195,7 +1372,7 @@ export default function App() {
                                 <td className="p-3">{tx.date.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                                 <td className={`p-3 font-semibold ${tx.type === 'Buy' ? 'text-green-500' : tx.type === 'Sell' ? 'text-red-500' : tx.type === 'Deposit' ? 'text-blue-500' : 'text-orange-500'}`}>{tx.type}</td>
                                 <td className={`p-3 font-semibold ${tx.status === 'Win' ? 'text-green-500' : tx.status === 'Loss' ? 'text-red-500' : ''}`}>{tx.status || '-'}</td>
-                                <td className={`p-3 font-semibold ${tx.pnl > 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</td>
+                                <td className={`p-3 font-semibold ${tx.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</td>
                                 <td className="p-3"><button onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id, tx.imageUrl); }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button></td>
                             </tr>
                             ))
