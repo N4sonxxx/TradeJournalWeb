@@ -229,7 +229,7 @@ const AddTransactionForm = ({ onAddTransaction, disabled }) => {
   );
 };
 
-// --- [UPDATED] TradeDetailModal Component with Error Handling ---
+// --- [UPDATED] TradeDetailModal with Remove Image Feature ---
 const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
     const [date, setDate] = useState(new Date(trade.date.toDate()).toISOString().split('T')[0]);
     const [type, setType] = useState(trade.type);
@@ -240,30 +240,60 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
     const [imageFile, setImageFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     const [imageUrl, setImageUrl] = useState(trade.imageUrl || '');
-    const [saveError, setSaveError] = useState(''); // State for visible error messages
+    const [saveError, setSaveError] = useState('');
     const fileInputRef = React.useRef(null);
 
     const isTrade = type === 'Buy' || type === 'Sell';
 
+    // New function to handle the user's intent to remove an image
+    const handleRemoveImage = () => {
+        setImageFile(null);
+        setImageUrl('');
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ""; // Clear the file input visually
+        }
+    };
+
     const handleSave = async () => {
         if (!user) {
-            console.error("User not available for saving.");
             setSaveError("Authentication error. Please log out and log in again.");
             return;
         }
         
         setIsUploading(true);
-        setSaveError(''); // Reset error on each attempt
+        setSaveError('');
 
         try {
             let finalImageUrl = imageUrl;
 
+            // Case 1: A new file is staged for upload. This handles both adding a new image and replacing an old one.
             if (imageFile) {
-                console.log(`Uploading image to screenshots/${user.uid}/${trade.id}/${imageFile.name}`);
-                const storageRef = ref(storage, `screenshots/${user.uid}/${trade.id}/${imageFile.name}`);
-                const snapshot = await uploadBytes(storageRef, imageFile);
+                // If an old image existed, delete it from Storage first.
+                if (trade.imageUrl) {
+                    try {
+                        const oldImageRef = ref(storage, trade.imageUrl);
+                        await deleteObject(oldImageRef);
+                    } catch (err) {
+                        console.warn("Could not delete old image, continuing with upload:", err);
+                    }
+                }
+                
+                const newImageRef = ref(storage, `screenshots/${user.uid}/${trade.id}/${imageFile.name}`);
+                const snapshot = await uploadBytes(newImageRef, imageFile);
                 finalImageUrl = await getDownloadURL(snapshot.ref);
-                console.log("Image upload successful. URL:", finalImageUrl);
+            } 
+            // Case 2: No new file is staged, AND the imageUrl is now empty, but the original trade had an imageUrl. This means "Remove" was clicked.
+            else if (!imageUrl && trade.imageUrl) {
+                try {
+                    const oldImageRef = ref(storage, trade.imageUrl);
+                    await deleteObject(oldImageRef);
+                    finalImageUrl = ''; // Confirm the URL is empty for Firestore.
+                } catch (err) {
+                    console.error("Failed to delete image from storage:", err);
+                    setSaveError(`Could not remove image. (Code: ${err.code || 'unknown'})`);
+                    setIsUploading(false);
+                    return;
+                }
             }
 
             let pnlValue = parseFloat(pnl);
@@ -276,12 +306,19 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
             const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
             const status = isTrade ? (pnlValue >= 0 ? 'Win' : 'Loss') : null;
             
-            await onSave({ 
-                ...trade, 
-                date: Timestamp.fromDate(new Date(date)), 
-                type, pnl: pnlValue, status, notes, 
-                tags: tagsArray, rating, imageUrl: finalImageUrl
-            });
+            const updatedTradeData = {
+                ...trade,
+                date: Timestamp.fromDate(new Date(date)),
+                type,
+                pnl: pnlValue,
+                status,
+                notes,
+                tags: tagsArray,
+                rating,
+                imageUrl: finalImageUrl
+            };
+            
+            await onSave(updatedTradeData);
             
             onCancel();
 
@@ -302,7 +339,6 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
                 </div>
                 
                 <div className="space-y-6">
-                    {/* Form fields remain the same */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label htmlFor="edit-date" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Date</label>
@@ -329,9 +365,16 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
                                     {imageUrl && !imageFile && <img src={imageUrl} alt="Trade Screenshot" className="max-h-64 mx-auto rounded-md"/>}
                                     {imageFile && <img src={URL.createObjectURL(imageFile)} alt="Preview" className="max-h-64 mx-auto rounded-md"/>}
                                     {!imageUrl && !imageFile && <div className="text-gray-400 flex flex-col items-center justify-center h-48"><ImageIcon className="w-16 h-16 mb-2"/><p>No image uploaded</p></div>}
-                                    <button onClick={() => fileInputRef.current.click()} className="mt-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-md transition">
-                                        {imageUrl || imageFile ? 'Change Image' : 'Select Image'}
-                                    </button>
+                                    <div className="flex justify-center items-center space-x-4 mt-4">
+                                        <button onClick={() => fileInputRef.current.click()} className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-md transition">
+                                            {imageUrl || imageFile ? 'Change Image' : 'Select Image'}
+                                        </button>
+                                        {(imageUrl || imageFile) && (
+                                            <button onClick={handleRemoveImage} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md transition">
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
                                     <input type="file" accept="image/*" ref={fileInputRef} onChange={(e) => setImageFile(e.target.files[0])} className="hidden"/>
                                 </div>
                             </div>
@@ -356,7 +399,6 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
                         </>
                     )}
                 </div>
-                {/* Visible Error Message */}
                 {saveError && <p className="text-red-500 text-sm mt-4 text-center bg-red-500/10 p-2 rounded-md">{saveError}</p>}
                 <div className="mt-8 flex justify-end">
                     <button onClick={handleSave} disabled={isUploading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition disabled:opacity-50">
