@@ -829,7 +829,8 @@ const SettingsModal = ({ settings, onSave, onCancel }) => {
     );
 };
 
-const ConsistencyTracker = ({ dailyStats, settings }) => {
+// --- [UPDATED] ConsistencyTracker Component ---
+const ConsistencyTracker = ({ dailyStats, settings, onOpenSettings }) => {
     const { pnl, tradeCount, profitTargetHit, lossLimitHit, maxTradesHit } = dailyStats;
     const { dailyProfitTarget, dailyLossLimit, startingEquity } = settings;
 
@@ -846,7 +847,8 @@ const ConsistencyTracker = ({ dailyStats, settings }) => {
     else if (maxTradesHit) alertMessage = 'Max Trades Reached!';
 
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md relative">
+            <button onClick={onOpenSettings} className="absolute top-4 right-4 p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"><SettingsIcon className="w-5 h-5" /></button>
             <h3 className="font-bold text-lg mb-4">Consistency Tracker</h3>
             <div className="space-y-4">
                 <div className="text-center">
@@ -1040,29 +1042,31 @@ function TradingJournal({ user, handleLogout }) {
   const [isCalculatorVisible, setIsCalculatorVisible] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Effect to fetch user-specific data from Firebase
+  // --- [UPDATED] Effect to fetch all user-specific data ---
   useEffect(() => {
-    if (!user) return; // Don't fetch if no user is logged in
+    if (!user) return;
     
     setLoading(true);
     
-    // User-specific collection paths
     const tradesCollectionPath = `users/${user.uid}/trades`;
     const journalsCollectionPath = `users/${user.uid}/dailyJournals`;
+    const settingsDocPath = `users/${user.uid}/profile/settings`;
 
+    // Listener for trades
     const q = query(collection(db, tradesCollectionPath), orderBy("date", "desc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribeTrades = onSnapshot(q, (querySnapshot) => {
       const transactionsData = [];
       querySnapshot.forEach((doc) => {
         transactionsData.push({ ...doc.data(), id: doc.id });
       });
       setTransactions(transactionsData);
-      setLoading(false);
+      setLoading(false); // Set loading to false after the primary data is fetched
     }, (error) => {
         console.error("Error fetching trades:", error);
         setLoading(false);
     });
 
+    // Listener for journals
     const journalsQuery = query(collection(db, journalsCollectionPath));
     const unsubJournals = onSnapshot(journalsQuery, (querySnapshot) => {
         const journalsData = {};
@@ -1074,11 +1078,26 @@ function TradingJournal({ user, handleLogout }) {
         console.error("Error fetching daily journals:", error);
     });
 
+    // Listener for user settings
+    const unsubSettings = onSnapshot(doc(db, settingsDocPath), (doc) => {
+        if (doc.exists()) {
+            // If settings exist in Firestore, merge them with defaults to avoid missing properties
+            setSettings(prevSettings => ({ ...prevSettings, ...doc.data() }));
+        } else {
+            // If no settings doc, you could create one with defaults here, or just use the local defaults
+            console.log("No settings document found for user. Using defaults.");
+        }
+    }, (error) => {
+        console.error("Error fetching settings:", error);
+    });
+
+
     return () => {
-        unsubscribe();
+        unsubscribeTrades();
         unsubJournals();
+        unsubSettings();
     };
-  }, [user]); // Rerun effect if user changes
+  }, [user]);
 
   // Effect to handle theme changes
   useEffect(() => {
@@ -1090,11 +1109,20 @@ function TradingJournal({ user, handleLogout }) {
     localStorage.setItem('themeV12', theme);
   }, [theme]);
   
-  // Function to save settings to localStorage
-  const saveSettings = (newSettings) => {
-      setSettings(newSettings);
-      // Could also save settings to Firestore under the user's profile
-      setIsSettingsModalOpen(false);
+  // --- [UPDATED] Function to save settings to Firestore ---
+  const saveSettings = async (newSettings) => {
+      if (!user) {
+          console.error("Cannot save settings, no user logged in.");
+          return;
+      }
+      const settingsDocPath = `users/${user.uid}/profile/settings`;
+      try {
+          await setDoc(doc(db, settingsDocPath), newSettings, { merge: true });
+          setSettings(newSettings); // Update local state on successful save
+          setIsSettingsModalOpen(false);
+      } catch (error) {
+          console.error("Error saving settings to Firestore:", error);
+      }
   };
 
   const addTransaction = async (tx) => {
@@ -1221,7 +1249,7 @@ function TradingJournal({ user, handleLogout }) {
     const top3 = tagPerformanceArray.filter(t => t.pnl > 0).slice(0, 3);
     const bottom3 = [...tagPerformanceArray.filter(t => t.pnl < 0)].reverse().slice(0, 3);
     let maxWinStreak = 0, currentWinStreak = 0, maxLossStreak = 0, currentLossStreak = 0;
-    chronoSortedTransactions.filter(tx => tx.type === 'Buy' || tx.type === 'Sell').forEach(trade => { if (trade.status === 'Win') { currentWinStreak++; currentLossStreak = 0; if (currentWinStreak > maxWinStreak) maxWinStreak = currentWinStreak; } else { currentLossStreak++; currentWinStreak = 0; if (currentLossStreak > maxLossStreak) maxLossStreak = currentLossStreak; } });
+    chronoSortedTransactions.filter(trade => trade.type === 'Buy' || trade.type === 'Sell').forEach(trade => { if (trade.status === 'Win') { currentWinStreak++; currentLossStreak = 0; if (currentWinStreak > maxWinStreak) maxWinStreak = currentWinStreak; } else { currentLossStreak++; currentWinStreak = 0; if (currentLossStreak > maxLossStreak) maxLossStreak = currentLossStreak; } });
     const avgWin = winningTrades.reduce((sum, t) => sum + t.pnl, 0) / (winningTrades.length || 1);
     const avgLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.pnl, 0) / (losingTrades.length || 1));
     const avgWinLossRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
@@ -1350,7 +1378,6 @@ function TradingJournal({ user, handleLogout }) {
             <p className="text-gray-500 dark:text-gray-400 mt-1">{user.email}</p>
           </div>
           <div className="flex items-center space-x-4">
-            <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"><SettingsIcon className="w-6 h-6" /></button>
             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">{theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}</button>
             <button onClick={handleLogout} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"><LogOutIcon className="w-6 h-6" /></button>
           </div>
@@ -1366,7 +1393,7 @@ function TradingJournal({ user, handleLogout }) {
                     <DashboardCard title="Total Withdrawals" value={formatCurrency(dashboardStats.totalWithdrawals)} valueColor="text-orange-500" icon={<MinusCircleIcon className="w-6 h-6 text-orange-500" />} />
                     <DailyBiasSetter todayBias={todayBias} onSaveBias={(biasData) => saveDailyJournal(todayString, biasData)} />
                 </div>
-                <ConsistencyTracker dailyStats={dailyStats} settings={settings} />
+                <ConsistencyTracker dailyStats={dailyStats} settings={settings} onOpenSettings={() => setIsSettingsModalOpen(true)} />
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
