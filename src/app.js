@@ -25,11 +25,13 @@ import {
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 // --- Firebase Configuration ---
+// NOTE: It's best practice to store these in environment variables
 const firebaseConfig = {
     apiKey: "AIzaSyDJTS2-XcoJCIR3OYDTE2-oqsUjorA4P-M",
     authDomain: "jurnal-trading-saya.firebaseapp.com",
     projectId: "jurnal-trading-saya",
-    storageBucket: "jurnal-trading-saya.appspot.com",
+    // --- [FIXED] Corrected the storageBucket URL ---
+    storageBucket: "jurnal-trading-saya.firebasestorage.app",
     messagingSenderId: "55282716936",
     appId: "1:55282716936:web:0d631d8ada6f89c7411cbd",
     measurementId: "G-BZ0D0MZXJV"
@@ -227,7 +229,8 @@ const AddTransactionForm = ({ onAddTransaction, disabled }) => {
   );
 };
 
-const TradeDetailModal = ({ trade, onSave, onCancel }) => {
+// --- [UPDATED] TradeDetailModal Component with Error Handling ---
+const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
     const [date, setDate] = useState(new Date(trade.date.toDate()).toISOString().split('T')[0]);
     const [type, setType] = useState(trade.type);
     const [pnl, setPnl] = useState(trade.pnl);
@@ -237,19 +240,30 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
     const [imageFile, setImageFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     const [imageUrl, setImageUrl] = useState(trade.imageUrl || '');
+    const [saveError, setSaveError] = useState(''); // State for visible error messages
     const fileInputRef = React.useRef(null);
 
     const isTrade = type === 'Buy' || type === 'Sell';
 
     const handleSave = async () => {
+        if (!user) {
+            console.error("User not available for saving.");
+            setSaveError("Authentication error. Please log out and log in again.");
+            return;
+        }
+        
         setIsUploading(true);
+        setSaveError(''); // Reset error on each attempt
+
         try {
             let finalImageUrl = imageUrl;
 
             if (imageFile) {
-                const storageRef = ref(storage, `screenshots/${trade.id}/${imageFile.name}`);
+                console.log(`Uploading image to screenshots/${user.uid}/${trade.id}/${imageFile.name}`);
+                const storageRef = ref(storage, `screenshots/${user.uid}/${trade.id}/${imageFile.name}`);
                 const snapshot = await uploadBytes(storageRef, imageFile);
                 finalImageUrl = await getDownloadURL(snapshot.ref);
+                console.log("Image upload successful. URL:", finalImageUrl);
             }
 
             let pnlValue = parseFloat(pnl);
@@ -272,7 +286,8 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
             onCancel();
 
         } catch (error) {
-            console.error("Failed to save transaction details:", error);
+            console.error("Detailed error during save:", error);
+            setSaveError(`Save failed. Check console for details. (Code: ${error.code || 'unknown'})`);
         } finally {
             setIsUploading(false);
         }
@@ -287,6 +302,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                 </div>
                 
                 <div className="space-y-6">
+                    {/* Form fields remain the same */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label htmlFor="edit-date" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Date</label>
@@ -314,7 +330,7 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                                     {imageFile && <img src={URL.createObjectURL(imageFile)} alt="Preview" className="max-h-64 mx-auto rounded-md"/>}
                                     {!imageUrl && !imageFile && <div className="text-gray-400 flex flex-col items-center justify-center h-48"><ImageIcon className="w-16 h-16 mb-2"/><p>No image uploaded</p></div>}
                                     <button onClick={() => fileInputRef.current.click()} className="mt-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-md transition">
-                                        {imageUrl ? 'Change Image' : 'Select Image'}
+                                        {imageUrl || imageFile ? 'Change Image' : 'Select Image'}
                                     </button>
                                     <input type="file" accept="image/*" ref={fileInputRef} onChange={(e) => setImageFile(e.target.files[0])} className="hidden"/>
                                 </div>
@@ -340,6 +356,8 @@ const TradeDetailModal = ({ trade, onSave, onCancel }) => {
                         </>
                     )}
                 </div>
+                {/* Visible Error Message */}
+                {saveError && <p className="text-red-500 text-sm mt-4 text-center bg-red-500/10 p-2 rounded-md">{saveError}</p>}
                 <div className="mt-8 flex justify-end">
                     <button onClick={handleSave} disabled={isUploading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition disabled:opacity-50">
                         {isUploading ? 'Saving...' : 'Save Changes'}
@@ -1037,7 +1055,6 @@ function TradingJournal({ user, handleLogout }) {
       setIsSettingsModalOpen(false);
   };
 
-  // --- Firestore Data Manipulation Functions ---
   const addTransaction = async (tx) => {
     const tradesCollectionPath = `users/${user.uid}/trades`;
     const status = (tx.type === 'Buy' || tx.type === 'Sell') ? (tx.pnl >= 0 ? 'Win' : 'Loss') : null;
@@ -1058,6 +1075,7 @@ function TradingJournal({ user, handleLogout }) {
   };
 
   const deleteTransaction = async (id, imageUrl) => {
+    if (!user) return;
     const tradesCollectionPath = `users/${user.uid}/trades`;
     try {
         await deleteDoc(doc(db, tradesCollectionPath, id));
@@ -1066,11 +1084,14 @@ function TradingJournal({ user, handleLogout }) {
             await deleteObject(imageRef);
         }
     } catch (error) {
-        console.error("Error deleting transaction: ", error);
+        if (error.code !== 'storage/object-not-found') {
+            console.error("Error deleting transaction or associated image: ", error);
+        }
     }
   };
   
   const saveTransactionDetails = async (updatedTx) => {
+    if (!user) return;
     const tradesCollectionPath = `users/${user.uid}/trades`;
     const txRef = doc(db, tradesCollectionPath, updatedTx.id);
     const { id, ...dataToSave } = updatedTx;
@@ -1082,6 +1103,7 @@ function TradingJournal({ user, handleLogout }) {
   };
 
   const saveDailyJournal = async (dateString, journalData) => {
+      if (!user) return;
       const journalsCollectionPath = `users/${user.uid}/dailyJournals`;
       const journalRef = doc(db, journalsCollectionPath, dateString);
       try {
@@ -1401,7 +1423,7 @@ function TradingJournal({ user, handleLogout }) {
             </div>
         </main>
         
-        {viewingTrade && <TradeDetailModal trade={viewingTrade} onSave={saveTransactionDetails} onCancel={() => setViewingTrade(null)} />}
+        {viewingTrade && <TradeDetailModal trade={viewingTrade} user={user} onSave={saveTransactionDetails} onCancel={() => setViewingTrade(null)} />}
         {selectedCalendarDate && <DailyDetailModal date={selectedCalendarDate} transactions={transactions} dailyJournals={dailyJournals} onSaveJournal={saveDailyJournal} onClose={() => setSelectedCalendarDate(null)} onTradeClick={handleOpenTradeFromCalendar} />}
         {isSettingsModalOpen && <SettingsModal settings={settings} onSave={saveSettings} onCancel={() => setIsSettingsModalOpen(false)} />}
         {isConfirmationModalOpen && <TradeConfirmationModal onCancel={() => setIsConfirmationModalOpen(false)} />}
