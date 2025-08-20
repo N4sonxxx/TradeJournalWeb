@@ -1203,15 +1203,14 @@ function TradingJournal({ user, handleLogout }) {
   const handleDayClick = (dateObject) => setSelectedCalendarDate(dateObject);
   const handleOpenTradeFromCalendar = (trade) => { setSelectedCalendarDate(null); setViewingTrade(trade); };
   
+  // --- [UPDATED] Calculation logic to use settings.startingEquity ---
   const { trades, dashboardStats, advancedStats, dailyStats, consistencyByDay } = useMemo(() => {
     const tradesOnly = transactions.filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
     const deposits = transactions.filter(tx => tx.type === 'Deposit').reduce((sum, tx) => sum + tx.pnl, 0);
     const withdrawals = transactions.filter(tx => tx.type === 'Withdrawal').reduce((sum, tx) => sum + tx.pnl, 0);
     
-    const chronoSortedTransactions = [...transactions].sort((a,b) => a.date.toDate() - b.date.toDate());
-    
-    let currentEquity = 0;
-    chronoSortedTransactions.forEach(tx => { currentEquity += tx.pnl; });
+    const totalPnl = transactions.reduce((sum, tx) => sum + tx.pnl, 0);
+    const currentEquity = totalPnl; // Reverted to original calculation
 
     const todayStr = new Date().toDateString();
     const todaysTrades = transactions.filter(tx => (tx.type === 'Buy' || tx.type === 'Sell') && tx.date.toDate().toDateString() === todayStr);
@@ -1254,7 +1253,7 @@ function TradingJournal({ user, handleLogout }) {
         consistencyByDay[dateStr] = calculateConsistencyForDay(dailyTrades, settings);
     }
 
-    const totalPnl = tradesOnly.reduce((sum, t) => sum + t.pnl, 0);
+    const totalPnlFromTrades = tradesOnly.reduce((sum, t) => sum + t.pnl, 0);
     const winningTrades = tradesOnly.filter(t => t.status === 'Win');
     const losingTrades = tradesOnly.filter(t => t.status === 'Loss');
     const winRate = tradesOnly.length > 0 ? winningTrades.length / tradesOnly.length : 0;
@@ -1265,8 +1264,9 @@ function TradingJournal({ user, handleLogout }) {
     const tagPerformanceArray = Object.entries(tagMap).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.pnl - a.pnl);
     const top3 = tagPerformanceArray.filter(t => t.pnl > 0).slice(0, 3);
     const bottom3 = [...tagPerformanceArray.filter(t => t.pnl < 0)].reverse().slice(0, 3);
+    const chronoSortedTradesOnly = [...tradesOnly].sort((a,b) => a.date.toDate() - b.date.toDate());
     let maxWinStreak = 0, currentWinStreak = 0, maxLossStreak = 0, currentLossStreak = 0;
-    chronoSortedTransactions.filter(trade => trade.type === 'Buy' || trade.type === 'Sell').forEach(trade => { if (trade.status === 'Win') { currentWinStreak++; currentLossStreak = 0; if (currentWinStreak > maxWinStreak) maxWinStreak = currentWinStreak; } else { currentLossStreak++; currentWinStreak = 0; if (currentLossStreak > maxLossStreak) maxLossStreak = currentLossStreak; } });
+    chronoSortedTradesOnly.forEach(trade => { if (trade.status === 'Win') { currentWinStreak++; currentLossStreak = 0; if (currentWinStreak > maxWinStreak) maxWinStreak = currentWinStreak; } else { currentLossStreak++; currentWinStreak = 0; if (currentLossStreak > maxLossStreak) maxLossStreak = currentLossStreak; } });
     const avgWin = winningTrades.reduce((sum, t) => sum + t.pnl, 0) / (winningTrades.length || 1);
     const avgLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.pnl, 0) / (losingTrades.length || 1));
     const avgWinLossRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
@@ -1275,6 +1275,7 @@ function TradingJournal({ user, handleLogout }) {
     tradesOnly.forEach(trade => { const day = dayNames[trade.date.toDate().getDay()]; dayPerformance[day].pnl += trade.pnl; dayPerformance[day].count++; });
     const pnlByRating1 = tradesOnly.filter(t => t.rating === 1).reduce((sum, t) => sum + t.pnl, 0);
     const pnlByRating5 = tradesOnly.filter(t => t.rating === 5).reduce((sum, t) => sum + t.pnl, 0);
+    const chronoSortedTransactions = [...transactions].sort((a,b) => a.date.toDate() - b.date.toDate());
     let peakEquity = 0, maxDrawdownValue = 0, currentDrawdownDuration = 0, longestDrawdownDuration = 0, inDrawdown = false, cumulativeEquity = 0;
     chronoSortedTransactions.forEach(trade => { 
         cumulativeEquity += trade.pnl; 
@@ -1304,7 +1305,7 @@ function TradingJournal({ user, handleLogout }) {
 
     return {
         trades: tradesOnly,
-        dashboardStats: { totalPnl, currentEquity, totalDeposits: deposits, totalWithdrawals: withdrawals, winRate, totalTrades: tradesOnly.length },
+        dashboardStats: { totalPnl: totalPnlFromTrades, currentEquity, totalDeposits: deposits, totalWithdrawals: withdrawals, winRate, totalTrades: tradesOnly.length },
         advancedStats: { tagPerformance: { top3, bottom3 }, streaks: { maxWinStreak, maxLossStreak }, dayPerformance, avgWinLossRatio, ratingPerformance: { pnlByRating1, pnlByRating5 }, drawdown: { maxDrawdownValue, maxDrawdownPercent, longestDrawdownDuration }, expectancy: { expectancyValue, breakEvenRRR, suggestion }, winRate, avgTradesPerDay },
         dailyStats,
         consistencyByDay
@@ -1450,7 +1451,7 @@ function TradingJournal({ user, handleLogout }) {
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                   <h2 className="text-xl font-bold mb-4">Equity Curve</h2>
                   <div className="h-64">
-                      <EquityCurveChart transactions={transactions} startingEquity={settings.startingEquity} />
+                      <EquityCurveChart transactions={transactions} startingEquity={0} />
                   </div>
               </div>
             </div>
