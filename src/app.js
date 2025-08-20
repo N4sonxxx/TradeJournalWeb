@@ -25,12 +25,10 @@ import {
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 // --- Firebase Configuration ---
-// NOTE: It's best practice to store these in environment variables
 const firebaseConfig = {
     apiKey: "AIzaSyDJTS2-XcoJCIR3OYDTE2-oqsUjorA4P-M",
     authDomain: "jurnal-trading-saya.firebaseapp.com",
     projectId: "jurnal-trading-saya",
-    // --- [FIXED] Corrected the storageBucket URL ---
     storageBucket: "jurnal-trading-saya.firebasestorage.app",
     messagingSenderId: "55282716936",
     appId: "1:55282716936:web:0d631d8ada6f89c7411cbd",
@@ -83,107 +81,132 @@ const DashboardCard = ({ title, value, icon, valueColor, subValue }) => (
   </div>
 );
 
-const EquityCurveChart = ({ transactions }) => {
+// --- [UPDATED] EquityCurveChart Component ---
+const EquityCurveChart = ({ transactions, startingEquity }) => {
     const chartRef = useRef(null);
-    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+    const [tooltip, setTooltip] = useState(null);
 
-    useEffect(() => {
-        const resizeObserver = new ResizeObserver(entries => {
-            if (entries && entries.length > 0) {
-                const { width, height } = entries[0].contentRect;
-                setDimensions({ width, height });
-            }
+    const chartData = useMemo(() => {
+        if (!transactions) return [];
+        const sorted = [...transactions].sort((a, b) => a.date.toDate() - b.date.toDate());
+        
+        let cumulativeEquity = startingEquity;
+
+        const dataPoints = [{ date: null, equity: startingEquity }];
+
+        sorted.forEach(tx => {
+            cumulativeEquity += tx.pnl;
+            dataPoints.push({
+                date: tx.date.toDate(),
+                equity: cumulativeEquity,
+            });
+        });
+        return dataPoints;
+    }, [transactions, startingEquity]);
+
+    // Moved this useMemo hook to be unconditional
+    const { width, height, margin, xScale, yScale, equityPath, gridLines, xTicks } = useMemo(() => {
+        const w = chartRef.current ? chartRef.current.offsetWidth : 500;
+        const h = chartRef.current ? chartRef.current.offsetHeight : 300;
+        const m = { top: 20, right: 20, bottom: 40, left: 60 };
+        const innerWidth = w - m.left - m.right;
+        const innerHeight = h - m.top - m.bottom;
+
+        const allValues = chartData.map(d => d.equity);
+        const yMin = Math.min(...allValues);
+        const yMax = Math.max(...allValues);
+        
+        const xS = (index) => m.left + (index / (chartData.length - 1)) * innerWidth;
+        const yS = (value) => m.top + innerHeight - ((value - yMin) / (yMax - yMin || 1)) * innerHeight;
+
+        const ePath = chartData.map((d, i) => `${i === 0 ? 'M' : 'L'} ${xS(i)} ${yS(d.equity)}`).join(' ');
+
+        const numGridLines = 5;
+        const gLines = Array.from({ length: numGridLines }).map((_, i) => {
+            const y = yMin + (i / (numGridLines - 1)) * (yMax - yMin);
+            return { y: yS(y), label: formatCurrency(y) };
+        });
+        
+        const numXTicks = chartData.length > 1 ? Math.min(chartData.length - 1, 7) : 1;
+        const xT = Array.from({ length: numXTicks}).map((_, i) => {
+            const index = chartData.length > 1 ? Math.floor(i * (chartData.length - 1) / (numXTicks - 1)) : 0;
+            const date = chartData[index+1]?.date;
+            return { x: xS(index+1), label: date ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric'}) : '' };
         });
 
-        if (chartRef.current) {
-            resizeObserver.observe(chartRef.current);
-        }
+        return { width: w, height: h, margin: m, xScale: xS, yScale: yS, equityPath: ePath, gridLines: gLines, xTicks: xT };
+    }, [chartData, chartRef.current?.offsetWidth]);
 
-        return () => {
-            if (chartRef.current) {
-                // eslint-disable-next-line react-hooks/exhaustive-deps
-                resizeObserver.unobserve(chartRef.current);
-            }
-        };
-    }, []);
 
-    const equityData = useMemo(() => {
-        if (!transactions || transactions.length === 0) return { points: '', labels: [] };
-
-        const sortedTransactions = [...transactions].sort((a, b) => a.date.toDate() - b.date.toDate());
-        
-        let runningEquity = 0;
-        
-        const equityValues = [];
-        sortedTransactions.forEach(tx => {
-            runningEquity += tx.pnl;
-            equityValues.push({ equity: runningEquity, date: tx.date.toDate() });
-        });
-
-        if (equityValues.length < 2) return { points: '', labels: [] };
-
-        const { width, height } = dimensions;
-        const margin = { top: 5, right: 5, bottom: 20, left: 60 };
-        const innerWidth = width - margin.left - margin.right;
-        const innerHeight = height - margin.top - margin.bottom;
-
-        if (innerWidth <= 0 || innerHeight <= 0) return { points: '', labels: [] };
-        
-        const equities = equityValues.map(d => d.equity);
-        const maxEquity = Math.max(...equities, 0);
-        const minEquity = Math.min(...equities, 0);
-        const range = maxEquity - minEquity;
-
-        const xScale = (index) => (index / (equityValues.length - 1)) * innerWidth;
-        const yScale = (value) => innerHeight - ((value - minEquity) / (range || 1)) * innerHeight;
-
-        const points = equityValues.map((d, index) => `${xScale(index)},${yScale(d.equity)}`).join(' ');
-        
-        const labels = [
-            { y: yScale(maxEquity), value: maxEquity },
-            { y: yScale(minEquity), value: minEquity }
-        ];
-
-        return { points, labels, margin, innerWidth, innerHeight };
-
-    }, [transactions, dimensions]);
-    
-    if (transactions.length < 2) {
+    if (chartData.length < 2) {
       return (
-        <div ref={chartRef} className="w-full h-full flex items-center justify-center text-gray-500">
-          Requires at least 2 transactions to display the chart.
+        <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
+          Not enough data to display chart.
         </div>
       );
     }
-    
-    const themeColor = document.documentElement.classList.contains('dark') ? "#4a5568" : "#cbd5e1";
-    const textColor = document.documentElement.classList.contains('dark') ? "#a0aec0" : "#4a5568";
-    
+
+    const handleMouseMove = (e) => {
+        const svgRect = chartRef.current.getBoundingClientRect();
+        const x = e.clientX - svgRect.left;
+        
+        const index = Math.round(((x - margin.left) / (width - margin.left - margin.right)) * (chartData.length - 1));
+
+        if (index >= 0 && index < chartData.length) {
+            const d = chartData[index];
+            setTooltip({
+                x: xScale(index),
+                y: e.clientY - svgRect.top,
+                data: d,
+            });
+        }
+    };
+
     return (
-      <div ref={chartRef} className="w-full h-full">
-        <svg width="100%" height="100%">
-          <g transform={`translate(${equityData.margin?.left || 0}, ${equityData.margin?.top || 0})`}>
-            {equityData.labels.map(label => (
-                <g key={label.value}>
-                    <line x1="0" y1={label.y} x2={equityData.innerWidth} y2={label.y} stroke={themeColor} strokeDasharray="2,2" />
-                    <text x={-10} y={label.y} dy="0.32em" textAnchor="end" fill={textColor} className="text-xs">{formatCurrency(label.value)}</text>
+        <div className="w-full h-full relative" ref={chartRef}>
+            <svg width="100%" height="100%" onMouseMove={handleMouseMove} onMouseLeave={() => setTooltip(null)}>
+                <g className="grid-lines">
+                    {gridLines.map((line, i) => (
+                        <g key={i}>
+                            <line x1={margin.left} y1={line.y} x2={width - margin.right} y2={line.y} stroke="currentColor" className="text-gray-200 dark:text-gray-700" strokeWidth="1" />
+                            <text x={margin.left - 10} y={line.y} dy="0.32em" textAnchor="end" className="text-xs fill-current text-gray-500 dark:text-gray-400">{line.label}</text>
+                        </g>
+                    ))}
                 </g>
-            ))}
-            <polyline fill="none" stroke="#4299e1" strokeWidth="2" points={equityData.points} />
-          </g>
-        </svg>
-      </div>
+                 <g className="x-axis-ticks">
+                    {xTicks.map((tick, i) => (
+                         <text key={i} x={tick.x} y={height - margin.bottom + 15} textAnchor="middle" className="text-xs fill-current text-gray-500 dark:text-gray-400">{tick.label}</text>
+                    ))}
+                </g>
+                <path d={equityPath} fill="none" stroke="#A0AEC0" strokeWidth="2" />
+                
+                {tooltip && (
+                    <g>
+                        <line x1={tooltip.x} y1={margin.top} x2={tooltip.x} y2={height - margin.bottom} stroke="currentColor" className="text-gray-400 dark:text-gray-500" strokeWidth="1" strokeDasharray="4,2" />
+                    </g>
+                )}
+            </svg>
+            {tooltip && (
+                <div className="absolute p-2 text-xs bg-white dark:bg-gray-900 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 pointer-events-none" style={{ left: `${tooltip.x + 10}px`, top: `${tooltip.y + 10}px`, transform: 'translateY(-100%)' }}>
+                    <p className="font-bold">{tooltip.data.date ? tooltip.data.date.toLocaleDateString() : 'Start'}</p>
+                    <p><span className="font-semibold text-gray-500">Equity:</span> {formatCurrency(tooltip.data.equity)}</p>
+                </div>
+            )}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex space-x-4 text-xs">
+                <div className="flex items-center space-x-1"><div className="w-3 h-3 rounded-full bg-[#A0AEC0]"></div><span>Equity</span></div>
+            </div>
+        </div>
     );
 };
 
-const AddTransactionForm = ({ onAddTransaction, disabled }) => {
+
+const AddTransactionForm = ({ onAddTransaction }) => {
   const [type, setType] = useState('Buy');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (disabled) return;
     let pnlValue = parseFloat(amount);
     if (!amount || isNaN(pnlValue)) {
       setError('Amount must be a number.');
@@ -205,11 +228,11 @@ const AddTransactionForm = ({ onAddTransaction, disabled }) => {
   const isTrade = type === 'Buy' || type === 'Sell';
 
   return (
-    <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md transition-colors duration-300 ${disabled ? 'opacity-50' : ''}`}>
+    <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md transition-colors duration-300`}>
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
         <div>
           <label htmlFor="type" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Transaction Type</label>
-          <select id="type" value={type} onChange={(e) => setType(e.target.value)} disabled={disabled} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:cursor-not-allowed">
+          <select id="type" value={type} onChange={(e) => setType(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
             <option>Buy</option>
             <option>Sell</option>
             <option>Deposit</option>
@@ -218,9 +241,9 @@ const AddTransactionForm = ({ onAddTransaction, disabled }) => {
         </div>
         <div>
           <label htmlFor="amount" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{isTrade ? 'Profit / Loss ($)' : 'Amount ($)'}</label>
-          <input id="amount" type="number" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={disabled} placeholder={isTrade ? "e.g. 150 or -75" : "e.g. 1000"} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:cursor-not-allowed" />
+          <input id="amount" type="number" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={isTrade ? "e.g. 150 or -75" : "e.g. 1000"} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
         </div>
-        <button type="submit" disabled={disabled} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
+        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">
           Save Transaction
         </button>
       </form>
@@ -229,7 +252,6 @@ const AddTransactionForm = ({ onAddTransaction, disabled }) => {
   );
 };
 
-// --- [UPDATED] TradeDetailModal with Remove Image Feature ---
 const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
     const [date, setDate] = useState(new Date(trade.date.toDate()).toISOString().split('T')[0]);
     const [type, setType] = useState(trade.type);
@@ -245,12 +267,11 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
 
     const isTrade = type === 'Buy' || type === 'Sell';
 
-    // New function to handle the user's intent to remove an image
     const handleRemoveImage = () => {
         setImageFile(null);
         setImageUrl('');
         if (fileInputRef.current) {
-            fileInputRef.current.value = ""; // Clear the file input visually
+            fileInputRef.current.value = "";
         }
     };
 
@@ -266,9 +287,7 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
         try {
             let finalImageUrl = imageUrl;
 
-            // Case 1: A new file is staged for upload. This handles both adding a new image and replacing an old one.
             if (imageFile) {
-                // If an old image existed, delete it from Storage first.
                 if (trade.imageUrl) {
                     try {
                         const oldImageRef = ref(storage, trade.imageUrl);
@@ -282,12 +301,11 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
                 const snapshot = await uploadBytes(newImageRef, imageFile);
                 finalImageUrl = await getDownloadURL(snapshot.ref);
             } 
-            // Case 2: No new file is staged, AND the imageUrl is now empty, but the original trade had an imageUrl. This means "Remove" was clicked.
             else if (!imageUrl && trade.imageUrl) {
                 try {
                     const oldImageRef = ref(storage, trade.imageUrl);
                     await deleteObject(oldImageRef);
-                    finalImageUrl = ''; // Confirm the URL is empty for Firestore.
+                    finalImageUrl = '';
                 } catch (err) {
                     console.error("Failed to delete image from storage:", err);
                     setSaveError(`Could not remove image. (Code: ${err.code || 'unknown'})`);
@@ -760,6 +778,7 @@ const TradeCalculator = ({ winRate, avgTradesPerDay }) => {
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-bold text-center mb-6">Profit Calculator</h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Initial Equity ($)</label><input name="equity" type="number" value={inputs.equity} onChange={handleInputChange} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
                 <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Target Equity ($)</label><input name="target" type="number" value={inputs.target} onChange={handleInputChange} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
@@ -829,7 +848,6 @@ const SettingsModal = ({ settings, onSave, onCancel }) => {
     );
 };
 
-// --- [UPDATED] ConsistencyTracker Component ---
 const ConsistencyTracker = ({ dailyStats, settings, onOpenSettings }) => {
     const { pnl, tradeCount, profitTargetHit, lossLimitHit, maxTradesHit } = dailyStats;
     const { dailyProfitTarget, dailyLossLimit, startingEquity } = settings;
@@ -1038,9 +1056,8 @@ function TradingJournal({ user, handleLogout }) {
   const [currentPage, setCurrentPage] = useState(1);
   const TRADES_PER_PAGE = 10;
   const [isFormVisible, setIsFormVisible] = useState(true);
-  const [isAdvancedVisible, setIsAdvancedVisible] = useState(false);
-  const [isCalculatorVisible, setIsCalculatorVisible] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('Dashboard'); // New state for tabs
 
   // --- [UPDATED] Effect to fetch all user-specific data ---
   useEffect(() => {
@@ -1364,10 +1381,24 @@ function TradingJournal({ user, handleLogout }) {
     return { total, wins, losses, winRate, totalProfit, totalLoss, netPnl: totalProfit + totalLoss, biasCorrect, biasIncorrect, disciplinedDays, overtradedDays, lossExceededDays };
   }, [trades, currentDate, dailyJournals, consistencyByDay]);
 
-  const isTradingDisabled = dailyStats.profitTargetHit || dailyStats.lossLimitHit || dailyStats.maxTradesHit;
-  
   const todayString = new Date().toISOString().split('T')[0];
   const todayBias = dailyJournals[todayString] || {};
+
+  const TabButton = ({ tabName }) => {
+    const isActive = activeTab === tabName;
+    return (
+      <button 
+        onClick={() => setActiveTab(tabName)}
+        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+          isActive 
+            ? 'bg-blue-600 text-white' 
+            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+        }`}
+      >
+        {tabName}
+      </button>
+    );
+  };
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white min-h-screen font-sans p-4 sm:p-6 lg:p-8 transition-colors duration-300">
@@ -1383,113 +1414,118 @@ function TradingJournal({ user, handleLogout }) {
           </div>
         </header>
 
+        <nav className="mb-8 flex space-x-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+          <TabButton tabName="Dashboard" />
+          <TabButton tabName="Journal" />
+          <TabButton tabName="Analytics" />
+        </nav>
+
         <main>
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
-                <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                    <DashboardCard title="Current Equity" value={formatCurrency(dashboardStats.currentEquity)} valueColor="text-blue-500" icon={<TargetIcon className="w-6 h-6 text-blue-500" />} />
-                    <DashboardCard title="Total P&L (Trades Only)" value={formatCurrency(dashboardStats.totalPnl)} valueColor={dashboardStats.totalPnl >= 0 ? 'text-green-500' : 'text-red-500'} icon={<DollarSignIcon className="w-6 h-6 text-green-500" />} />
-                    <DashboardCard title="Win Rate" value={`${(dashboardStats.winRate * 100).toFixed(1)}%`} valueColor="text-indigo-500" icon={<PercentIcon className="w-6 h-6 text-indigo-500" />} subValue={`${dashboardStats.totalTrades} trades`} />
-                    <DashboardCard title="Total Deposits" value={formatCurrency(dashboardStats.totalDeposits)} valueColor="text-yellow-500" icon={<PlusCircleIcon className="w-6 h-6 text-yellow-500" />} />
-                    <DashboardCard title="Total Withdrawals" value={formatCurrency(dashboardStats.totalWithdrawals)} valueColor="text-orange-500" icon={<MinusCircleIcon className="w-6 h-6 text-orange-500" />} />
-                    <DailyBiasSetter todayBias={todayBias} onSaveBias={(biasData) => saveDailyJournal(todayString, biasData)} />
-                </div>
-                <ConsistencyTracker dailyStats={dailyStats} settings={settings} onOpenSettings={() => setIsSettingsModalOpen(true)} />
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold mb-4">Equity Curve</h2>
-                    <div className="h-64">
-                       <EquityCurveChart transactions={transactions} />
-                    </div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold mb-4">Monthly Stats</h2>
-                    <div className="w-40 h-40 mx-auto mb-4"><DonutChart data={[{ label: 'Profit', value: monthlyStats.totalProfit, color: '#48bb78' }, { label: 'Loss', value: Math.abs(monthlyStats.totalLoss), color: '#f56565' }]}/></div>
-                    <div className="space-y-3 text-sm">
-                        <p className="flex justify-between"><span>Profit:</span> <span className="font-semibold text-green-500">{formatCurrency(monthlyStats.totalProfit)}</span></p>
-                        <p className="flex justify-between"><span>Loss:</span> <span className="font-semibold text-red-500">{formatCurrency(monthlyStats.totalLoss)}</span></p>
-                        <p className="flex justify-between font-bold border-t pt-2"><span>Net P&L:</span> <span className={monthlyStats.netPnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(monthlyStats.netPnl)}</span></p>
-                    </div>
-                    <hr className="my-4 border-gray-200 dark:border-gray-700"/>
-                    <div className="space-y-3 text-sm">
-                        <p className="flex justify-between"><span>Total Trades:</span> <span className="font-semibold">{monthlyStats.total}</span></p>
-                        <p className="flex justify-between"><span>Winning Trades:</span> <span className="font-semibold">{monthlyStats.wins}</span></p>
-                        <p className="flex justify-between"><span>Losing Trades:</span> <span className="font-semibold">{monthlyStats.losses}</span></p>
-                        <p className="flex justify-between"><span>Win Rate:</span> <span className="font-semibold">{monthlyStats.winRate.toFixed(1)}%</span></p>
-                    </div>
-                    <hr className="my-4 border-gray-200 dark:border-gray-700"/>
-                    <div className="space-y-3 text-sm">
-                        <p className="flex justify-between"><span>Bias Correct:</span> <span className="font-semibold text-green-500">{monthlyStats.biasCorrect}</span></p>
-                        <p className="flex justify-between"><span>Bias Incorrect:</span> <span className="font-semibold text-red-500">{monthlyStats.biasIncorrect}</span></p>
-                    </div>
-                    <hr className="my-4 border-gray-200 dark:border-gray-700"/>
-                    <div className="space-y-3 text-sm">
-                        <p className="flex justify-between"><span>Disciplined Days:</span> <span className="font-semibold text-green-500">{monthlyStats.disciplinedDays}</span></p>
-                        <p className="flex justify-between"><span>Overtraded Days:</span> <span className="font-semibold text-yellow-500">{monthlyStats.overtradedDays}</span></p>
-                        <p className="flex justify-between"><span>Loss Exceeded Days:</span> <span className="font-semibold text-red-500">{monthlyStats.lossExceededDays}</span></p>
-                    </div>
-                </div>
-            </div>
-            
-            <div className="mb-8">
-                <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} consistencyByDay={consistencyByDay} />
-            </div>
-            
-            <div className="mb-8">
-               <PerformanceByDayChart dayPerformance={advancedStats.dayPerformance} />
-            </div>
-            
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
-                <button onClick={() => setIsConfirmationModalOpen(true)} className="w-full p-4 flex justify-between items-center text-left text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                    <div className="flex items-center space-x-3">
-                        <ClipboardCheckIcon className="w-6 h-6" />
-                        <h2 className="text-xl font-bold">Should You Take The Trade?</h2>
-                    </div>
-                    <ChevronRightIcon className="w-6 h-6" />
-                </button>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
-                <button onClick={() => setIsAdvancedVisible(!isAdvancedVisible)} className="w-full p-4 flex justify-between items-center text-left"><h2 className="text-xl font-bold">Show Advanced Analytics</h2><ChevronDownIcon className={`w-6 h-6 transition-transform ${isAdvancedVisible ? 'rotate-180' : ''}`} /></button>
-                {isAdvancedVisible && <div className="border-t border-gray-200 dark:border-gray-700"><AdvancedAnalyticsDashboard stats={advancedStats} /></div>}
-            </div>
-            
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
-                <button onClick={() => setIsCalculatorVisible(!isCalculatorVisible)} className="w-full p-4 flex justify-between items-center text-left"><h2 className="text-xl font-bold">Trading Projection Calculator</h2><ChevronDownIcon className={`w-6 h-6 transition-transform ${isCalculatorVisible ? 'rotate-180' : ''}`} /></button>
-                {isCalculatorVisible && <div className="border-t border-gray-200 dark:border-gray-700"><TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} /></div>}
-            </div>
-
+          {activeTab === 'Dashboard' && (
             <div className="space-y-8">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
-                    <div className="p-6 flex justify-between items-center"><h2 className="text-xl font-bold">Add New Transaction</h2><button onClick={() => setIsFormVisible(!isFormVisible)} className="text-gray-500 hover:text-gray-800 dark:hover:text-white">{isFormVisible ? <MinusCircleIcon className="w-6 h-6"/> : <PlusCircleIcon className="w-6 h-6"/>}</button></div>
-                    {isFormVisible && <div className="border-t border-gray-200 dark:border-gray-700"><AddTransactionForm onAddTransaction={addTransaction} disabled={isTradingDisabled} /></div>}
-                </div>
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                  <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                      <DashboardCard title="Current Equity" value={formatCurrency(dashboardStats.currentEquity)} valueColor="text-blue-500" icon={<TargetIcon className="w-6 h-6 text-blue-500" />} />
+                      <DashboardCard title="Total P&L (Trades Only)" value={formatCurrency(dashboardStats.totalPnl)} valueColor={dashboardStats.totalPnl >= 0 ? 'text-green-500' : 'text-red-500'} icon={<DollarSignIcon className="w-6 h-6 text-green-500" />} />
+                      <DashboardCard title="Win Rate" value={`${(dashboardStats.winRate * 100).toFixed(1)}%`} valueColor="text-indigo-500" icon={<PercentIcon className="w-6 h-6 text-indigo-500" />} subValue={`${dashboardStats.totalTrades} trades`} />
+                      <DashboardCard title="Total Deposits" value={formatCurrency(dashboardStats.totalDeposits)} valueColor="text-yellow-500" icon={<PlusCircleIcon className="w-6 h-6 text-yellow-500" />} />
+                      <DashboardCard title="Total Withdrawals" value={formatCurrency(dashboardStats.totalWithdrawals)} valueColor="text-orange-500" icon={<MinusCircleIcon className="w-6 h-6 text-orange-500" />} />
+                      <DailyBiasSetter todayBias={todayBias} onSaveBias={(biasData) => saveDailyJournal(todayString, biasData)} />
+                  </div>
+                  <ConsistencyTracker dailyStats={dailyStats} settings={settings} onOpenSettings={() => setIsSettingsModalOpen(true)} />
+              </div>
+              
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                  <button onClick={() => setActiveTab('Journal')} className="w-full p-4 flex justify-between items-center text-left text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                      <div className="flex items-center space-x-3">
+                          <PlusCircleIcon className="w-6 h-6" />
+                          <h2 className="text-xl font-bold">Add a Trade</h2>
+                      </div>
+                      <ChevronRightIcon className="w-6 h-6" />
+                  </button>
+              </div>
 
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md transition-colors duration-300">
-                    <div className="flex flex-col sm:flex-row justify-between items-center mb-4"><h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 sm:mb-0">Transaction History ({filteredAndSortedTransactions.length})</h2><div className="flex items-center space-x-4"><select onChange={(e) => setFilterStatus(e.target.value)} value={filterStatus} className="bg-gray-50 dark:bg-gray-700 border rounded-md py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"><option value="all">All Statuses</option><option value="Win">Win</option><option value="Loss">Loss</option></select><select onChange={(e) => setFilterType(e.target.value)} value={filterType} className="bg-gray-50 dark:bg-gray-700 border rounded-md py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"><option value="all">All Types</option><option value="Buy">Buy</option><option value="Sell">Sell</option><option value="Deposit">Deposit</option><option value="Withdrawal">Withdrawal</option></select></div></div>
-                    <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead><tr className="border-b border-gray-200 dark:border-gray-700"><th className="p-3 text-sm font-semibold">Details</th><th className="p-3 text-sm font-semibold cursor-pointer" onClick={() => requestSort('date')}>Date ⇅</th><th className="p-3 text-sm font-semibold">Type</th><th className="p-3 text-sm font-semibold">Status</th><th className="p-3 text-sm font-semibold cursor-pointer" onClick={() => requestSort('pnl')}>Amount ⇅</th><th className="p-3 text-sm font-semibold">Actions</th></tr></thead>
-                        <tbody>
-                        {loading ? ( <tr><td colSpan="6" className="text-center p-8">Loading data...</td></tr> ) : paginatedTransactions.length > 0 ? (
-                            paginatedTransactions.map(tx => (
-                            <tr key={tx.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setViewingTrade(tx)}>
-                                <td className="p-3 text-center">{ (tx.notes || (tx.tags && tx.tags.length > 0) || tx.rating > 0 || tx.imageUrl) && <NoteIcon className="w-5 h-5 text-blue-500 mx-auto"/> }</td>
-                                <td className="p-3">{tx.date.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
-                                <td className={`p-3 font-semibold ${tx.type === 'Buy' ? 'text-green-500' : tx.type === 'Sell' ? 'text-red-500' : tx.type === 'Deposit' ? 'text-blue-500' : 'text-orange-500'}`}>{tx.type}</td>
-                                <td className={`p-3 font-semibold ${tx.status === 'Win' ? 'text-green-500' : tx.status === 'Loss' ? 'text-red-500' : ''}`}>{tx.status || '-'}</td>
-                                <td className={`p-3 font-semibold ${tx.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</td>
-                                <td className="p-3"><button onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id, tx.imageUrl); }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button></td>
-                            </tr>
-                            ))
-                        ) : (<tr><td colSpan="6" className="text-center p-8">No matching data found.</td></tr>)}
-                        </tbody>
-                    </table>
-                    </div>
-                    {totalPages > 1 && <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />}
-                </div>
+              <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} consistencyByDay={consistencyByDay} />
+
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                  <h2 className="text-xl font-bold mb-4">Equity Curve</h2>
+                  <div className="h-64">
+                      <EquityCurveChart transactions={transactions} startingEquity={settings.startingEquity} />
+                  </div>
+              </div>
             </div>
+          )}
+
+          {activeTab === 'Journal' && (
+            <div className="space-y-8">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                  <div className="p-6 flex justify-between items-center"><h2 className="text-xl font-bold">Add New Transaction</h2><button onClick={() => setIsFormVisible(!isFormVisible)} className="text-gray-500 hover:text-gray-800 dark:hover:text-white">{isFormVisible ? <MinusCircleIcon className="w-6 h-6"/> : <PlusCircleIcon className="w-6 h-6"/>}</button></div>
+                  {isFormVisible && <div className="border-t border-gray-200 dark:border-gray-700"><AddTransactionForm onAddTransaction={addTransaction} /></div>}
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md transition-colors duration-300">
+                  <div className="flex flex-col sm:flex-row justify-between items-center mb-4"><h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 sm:mb-0">Transaction History ({filteredAndSortedTransactions.length})</h2><div className="flex items-center space-x-4"><select onChange={(e) => setFilterStatus(e.target.value)} value={filterStatus} className="bg-gray-50 dark:bg-gray-700 border rounded-md py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"><option value="all">All Statuses</option><option value="Win">Win</option><option value="Loss">Loss</option></select><select onChange={(e) => setFilterType(e.target.value)} value={filterType} className="bg-gray-50 dark:bg-gray-700 border rounded-md py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"><option value="all">All Types</option><option value="Buy">Buy</option><option value="Sell">Sell</option><option value="Deposit">Deposit</option><option value="Withdrawal">Withdrawal</option></select></div></div>
+                  <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                      <thead><tr className="border-b border-gray-200 dark:border-gray-700"><th className="p-3 text-sm font-semibold">Details</th><th className="p-3 text-sm font-semibold cursor-pointer" onClick={() => requestSort('date')}>Date ⇅</th><th className="p-3 text-sm font-semibold">Type</th><th className="p-3 text-sm font-semibold">Status</th><th className="p-3 text-sm font-semibold cursor-pointer" onClick={() => requestSort('pnl')}>Amount ⇅</th><th className="p-3 text-sm font-semibold">Actions</th></tr></thead>
+                      <tbody>
+                      {loading ? ( <tr><td colSpan="6" className="text-center p-8">Loading data...</td></tr> ) : paginatedTransactions.length > 0 ? (
+                          paginatedTransactions.map(tx => (
+                          <tr key={tx.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setViewingTrade(tx)}>
+                              <td className="p-3 text-center">{ (tx.notes || (tx.tags && tx.tags.length > 0) || tx.rating > 0 || tx.imageUrl) && <NoteIcon className="w-5 h-5 text-blue-500 mx-auto"/> }</td>
+                              <td className="p-3">{tx.date.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                              <td className={`p-3 font-semibold ${tx.type === 'Buy' ? 'text-green-500' : tx.type === 'Sell' ? 'text-red-500' : tx.type === 'Deposit' ? 'text-blue-500' : 'text-orange-500'}`}>{tx.type}</td>
+                              <td className={`p-3 font-semibold ${tx.status === 'Win' ? 'text-green-500' : tx.status === 'Loss' ? 'text-red-500' : ''}`}>{tx.status || '-'}</td>
+                              <td className={`p-3 font-semibold ${tx.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</td>
+                              <td className="p-3"><button onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id, tx.imageUrl); }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button></td>
+                          </tr>
+                          ))
+                      ) : (<tr><td colSpan="6" className="text-center p-8">No matching data found.</td></tr>)}
+                      </tbody>
+                  </table>
+                  </div>
+                  {totalPages > 1 && <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'Analytics' && (
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                      <h2 className="text-xl font-bold mb-4">Monthly Stats</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                          <div className="w-40 h-40 mx-auto"><DonutChart data={[{ label: 'Profit', value: monthlyStats.totalProfit, color: '#48bb78' }, { label: 'Loss', value: Math.abs(monthlyStats.totalLoss), color: '#f56565' }]}/></div>
+                          <div className="space-y-3 text-sm">
+                              <p className="flex justify-between"><span>Profit:</span> <span className="font-semibold text-green-500">{formatCurrency(monthlyStats.totalProfit)}</span></p>
+                              <p className="flex justify-between"><span>Loss:</span> <span className="font-semibold text-red-500">{formatCurrency(monthlyStats.totalLoss)}</span></p>
+                              <p className="flex justify-between font-bold border-t pt-2"><span>Net P&L:</span> <span className={monthlyStats.netPnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(monthlyStats.netPnl)}</span></p>
+                          </div>
+                      </div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                      <h2 className="text-xl font-bold mb-4">Monthly Breakdown</h2>
+                      <div className="space-y-3 text-sm">
+                          <p className="flex justify-between"><span>Total Trades:</span> <span className="font-semibold">{monthlyStats.total}</span></p>
+                          <p className="flex justify-between"><span>Winning Trades:</span> <span className="font-semibold">{monthlyStats.wins}</span></p>
+                          <p className="flex justify-between"><span>Losing Trades:</span> <span className="font-semibold">{monthlyStats.losses}</span></p>
+                          <p className="flex justify-between"><span>Win Rate:</span> <span className="font-semibold">{monthlyStats.winRate.toFixed(1)}%</span></p>
+                          <hr className="my-2 border-gray-200 dark:border-gray-700"/>
+                          <p className="flex justify-between"><span>Bias Correct:</span> <span className="font-semibold text-green-500">{monthlyStats.biasCorrect}</span></p>
+                          <p className="flex justify-between"><span>Bias Incorrect:</span> <span className="font-semibold text-red-500">{monthlyStats.biasIncorrect}</span></p>
+                          <hr className="my-2 border-gray-200 dark:border-gray-700"/>
+                          <p className="flex justify-between"><span>Disciplined Days:</span> <span className="font-semibold text-green-500">{monthlyStats.disciplinedDays}</span></p>
+                          <p className="flex justify-between"><span>Overtraded Days:</span> <span className="font-semibold text-yellow-500">{monthlyStats.overtradedDays}</span></p>
+                          <p className="flex justify-between"><span>Loss Exceeded Days:</span> <span className="font-semibold text-red-500">{monthlyStats.lossExceededDays}</span></p>
+                      </div>
+                  </div>
+              </div>
+              <PerformanceByDayChart dayPerformance={advancedStats.dayPerformance} />
+              <AdvancedAnalyticsDashboard stats={advancedStats} />
+              <TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} />
+            </div>
+          )}
+
         </main>
         
         {viewingTrade && <TradeDetailModal trade={viewingTrade} user={user} onSave={saveTransactionDetails} onCancel={() => setViewingTrade(null)} />}
@@ -1518,7 +1554,15 @@ function AuthPage() {
                 await createUserWithEmailAndPassword(auth, email, password);
             }
         } catch (err) {
-            setError(err.message);
+            // --- [UPDATED] More user-friendly error handling ---
+            if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+                setError('Wrong email or password.');
+            } else if (err.code === 'auth/email-already-in-use') {
+                setError('This email address is already in use.');
+            } else {
+                setError('An error occurred. Please try again.');
+                console.error("Authentication error:", err);
+            }
         }
     };
 
