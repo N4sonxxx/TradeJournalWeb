@@ -67,6 +67,7 @@ const PercentIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" w
 const BullIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 8h2a2 2 0 0 1 2 2v2M8 8H6a2 2 0 0 0-2 2v2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
 const BearIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 16h2a2 2 0 0 0 2-2v-2M8 16H6a2 2 0 0 1-2-2v-2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
 const LogOutIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
+const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
 
 // --- Components ---
 
@@ -81,7 +82,6 @@ const DashboardCard = ({ title, value, icon, valueColor, subValue }) => (
   </div>
 );
 
-// --- [UPDATED] EquityCurveChart Component ---
 const EquityCurveChart = ({ transactions, startingEquity }) => {
     const chartRef = useRef(null);
     const [tooltip, setTooltip] = useState(null);
@@ -104,7 +104,6 @@ const EquityCurveChart = ({ transactions, startingEquity }) => {
         return dataPoints;
     }, [transactions, startingEquity]);
 
-    // Moved this useMemo hook to be unconditional
     const { width, height, margin, xScale, yScale, equityPath, gridLines, xTicks } = useMemo(() => {
         const w = chartRef.current ? chartRef.current.offsetWidth : 500;
         const h = chartRef.current ? chartRef.current.offsetHeight : 300;
@@ -141,7 +140,7 @@ const EquityCurveChart = ({ transactions, startingEquity }) => {
     if (chartData.length < 2) {
       return (
         <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
-          Not enough data to display chart.
+          Not enough data to display chart for the selected period.
         </div>
       );
     }
@@ -803,16 +802,25 @@ const SettingsModal = ({ settings, onSave, onCancel }) => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setCurrentSettings(prev => ({ ...prev, [name]: value }));
+        if (name === 'dailyProfitTarget' || name === 'dailyLossLimit') {
+            setCurrentSettings(prev => ({
+                ...prev,
+                [name]: { ...prev[name], value: Number(value) }
+            }));
+        } else {
+            setCurrentSettings(prev => ({ ...prev, [name]: Number(value) }));
+        }
+    };
+
+    const handleUnitChange = (name, unit) => {
+        setCurrentSettings(prev => ({
+            ...prev,
+            [name]: { ...prev[name], unit }
+        }));
     };
 
     const handleSave = () => {
-        onSave({
-            startingEquity: Number(currentSettings.startingEquity),
-            dailyProfitTarget: Number(currentSettings.dailyProfitTarget),
-            dailyLossLimit: Number(currentSettings.dailyLossLimit),
-            maxTradesPerDay: Number(currentSettings.maxTradesPerDay),
-        });
+        onSave(currentSettings);
     };
 
     return (
@@ -828,12 +836,24 @@ const SettingsModal = ({ settings, onSave, onCancel }) => {
                         <input type="number" name="startingEquity" value={currentSettings.startingEquity} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-700 border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Daily Profit Target (%)</label>
-                        <input type="number" name="dailyProfitTarget" value={currentSettings.dailyProfitTarget} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-700 border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Daily Profit Target</label>
+                        <div className="flex">
+                            <input type="number" name="dailyProfitTarget" value={currentSettings.dailyProfitTarget.value} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-700 border rounded-l-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"/>
+                            <div className="flex">
+                                <button onClick={() => handleUnitChange('dailyProfitTarget', '%')} className={`px-4 py-2 text-sm font-semibold border-t border-b ${currentSettings.dailyProfitTarget.unit === '%' ? 'bg-blue-600 text-white z-10' : 'bg-gray-200 dark:bg-gray-600'}`}>%</button>
+                                <button onClick={() => handleUnitChange('dailyProfitTarget', '$')} className={`px-4 py-2 text-sm font-semibold border rounded-r-md ${currentSettings.dailyProfitTarget.unit === '$' ? 'bg-blue-600 text-white z-10' : 'bg-gray-200 dark:bg-gray-600'}`}>$</button>
+                            </div>
+                        </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Daily Loss Limit (%)</label>
-                        <input type="number" name="dailyLossLimit" value={currentSettings.dailyLossLimit} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-700 border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Daily Loss Limit</label>
+                         <div className="flex">
+                            <input type="number" name="dailyLossLimit" value={currentSettings.dailyLossLimit.value} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-700 border rounded-l-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"/>
+                            <div className="flex">
+                                <button onClick={() => handleUnitChange('dailyLossLimit', '%')} className={`px-4 py-2 text-sm font-semibold border-t border-b ${currentSettings.dailyLossLimit.unit === '%' ? 'bg-blue-600 text-white z-10' : 'bg-gray-200 dark:bg-gray-600'}`}>%</button>
+                                <button onClick={() => handleUnitChange('dailyLossLimit', '$')} className={`px-4 py-2 text-sm font-semibold border rounded-r-md ${currentSettings.dailyLossLimit.unit === '$' ? 'bg-blue-600 text-white z-10' : 'bg-gray-200 dark:bg-gray-600'}`}>$</button>
+                            </div>
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Max Trades Per Day</label>
@@ -852,8 +872,21 @@ const ConsistencyTracker = ({ dailyStats, settings, onOpenSettings }) => {
     const { pnl, tradeCount, profitTargetHit, lossLimitHit, maxTradesHit } = dailyStats;
     const { dailyProfitTarget, dailyLossLimit, startingEquity } = settings;
 
-    const profitTargetValue = (startingEquity * dailyProfitTarget) / 100;
-    const lossLimitValue = -Math.abs((startingEquity * dailyLossLimit) / 100);
+    const profitTargetValue = dailyProfitTarget.unit === '%'
+        ? (startingEquity * dailyProfitTarget.value) / 100
+        : dailyProfitTarget.value;
+
+    const lossLimitValue = dailyLossLimit.unit === '%'
+        ? -Math.abs((startingEquity * dailyLossLimit.value) / 100)
+        : -Math.abs(dailyLossLimit.value);
+
+    const profitTargetLabel = dailyProfitTarget.unit === '$'
+        ? formatCurrency(dailyProfitTarget.value)
+        : `${dailyProfitTarget.value}%`;
+
+    const lossLimitLabel = dailyLossLimit.unit === '$'
+        ? formatCurrency(dailyLossLimit.value)
+        : `${dailyLossLimit.value}%`;
 
     const profitProgress = profitTargetValue > 0 ? Math.min((pnl / profitTargetValue) * 100, 100) : 0;
     const lossProgress = lossLimitValue < 0 ? Math.min((pnl / lossLimitValue) * 100, 100) : 0;
@@ -883,14 +916,14 @@ const ConsistencyTracker = ({ dailyStats, settings, onOpenSettings }) => {
 
                 <div>
                     <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold text-gray-600 dark:text-gray-300">Profit Target ({formatCurrency(profitTargetValue)})</span>
+                        <span className="font-semibold text-gray-600 dark:text-gray-300">Profit Target ({profitTargetLabel})</span>
                         <span className="font-semibold text-green-500">{profitProgress.toFixed(0)}%</span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5"><div className="bg-green-500 h-2.5 rounded-full" style={{width: `${profitProgress}%`}}></div></div>
                 </div>
                  <div>
                     <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold text-gray-600 dark:text-gray-300">Loss Limit ({formatCurrency(lossLimitValue)})</span>
+                        <span className="font-semibold text-gray-600 dark:text-gray-300">Loss Limit ({lossLimitLabel})</span>
                         <span className="font-semibold text-red-500">{lossProgress.toFixed(0)}%</span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5"><div className="bg-red-500 h-2.5 rounded-full" style={{width: `${lossProgress}%`}}></div></div>
@@ -1042,8 +1075,8 @@ function TradingJournal({ user, handleLogout }) {
   const [theme, setTheme] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('themeV12') || 'dark' : 'dark');
   const [settings, setSettings] = useState({
       startingEquity: 10000,
-      dailyProfitTarget: 2, // in percent
-      dailyLossLimit: 1, // in percent
+      dailyProfitTarget: { value: 2, unit: '%' },
+      dailyLossLimit: { value: 1, unit: '%' },
       maxTradesPerDay: 5,
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -1057,9 +1090,12 @@ function TradingJournal({ user, handleLogout }) {
   const TRADES_PER_PAGE = 10;
   const [isFormVisible, setIsFormVisible] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [activeTab, setActiveTab] = useState('Dashboard'); // New state for tabs
+  const [activeTab, setActiveTab] = useState('Dashboard');
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+  const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
+  const dateFilterRef = useRef(null);
 
-  // --- [UPDATED] Effect to fetch all user-specific data ---
   useEffect(() => {
     if (!user) return;
     
@@ -1069,7 +1105,6 @@ function TradingJournal({ user, handleLogout }) {
     const journalsCollectionPath = `users/${user.uid}/dailyJournals`;
     const settingsDocPath = `users/${user.uid}/profile/settings`;
 
-    // Listener for trades
     const q = query(collection(db, tradesCollectionPath), orderBy("date", "desc"));
     const unsubscribeTrades = onSnapshot(q, (querySnapshot) => {
       const transactionsData = [];
@@ -1077,13 +1112,12 @@ function TradingJournal({ user, handleLogout }) {
         transactionsData.push({ ...doc.data(), id: doc.id });
       });
       setTransactions(transactionsData);
-      setLoading(false); // Set loading to false after the primary data is fetched
+      setLoading(false);
     }, (error) => {
         console.error("Error fetching trades:", error);
         setLoading(false);
     });
 
-    // Listener for journals
     const journalsQuery = query(collection(db, journalsCollectionPath));
     const unsubJournals = onSnapshot(journalsQuery, (querySnapshot) => {
         const journalsData = {};
@@ -1095,13 +1129,18 @@ function TradingJournal({ user, handleLogout }) {
         console.error("Error fetching daily journals:", error);
     });
 
-    // Listener for user settings
     const unsubSettings = onSnapshot(doc(db, settingsDocPath), (doc) => {
         if (doc.exists()) {
-            // If settings exist in Firestore, merge them with defaults to avoid missing properties
-            setSettings(prevSettings => ({ ...prevSettings, ...doc.data() }));
+            const loadedSettings = doc.data();
+            // Migration for old settings format
+            if (typeof loadedSettings.dailyProfitTarget === 'number') {
+                loadedSettings.dailyProfitTarget = { value: loadedSettings.dailyProfitTarget, unit: '%' };
+            }
+            if (typeof loadedSettings.dailyLossLimit === 'number') {
+                loadedSettings.dailyLossLimit = { value: loadedSettings.dailyLossLimit, unit: '%' };
+            }
+            setSettings(prevSettings => ({ ...prevSettings, ...loadedSettings }));
         } else {
-            // If no settings doc, you could create one with defaults here, or just use the local defaults
             console.log("No settings document found for user. Using defaults.");
         }
     }, (error) => {
@@ -1116,7 +1155,6 @@ function TradingJournal({ user, handleLogout }) {
     };
   }, [user]);
 
-  // Effect to handle theme changes
   useEffect(() => {
     if (theme === 'dark') {
         document.documentElement.classList.add('dark');
@@ -1126,7 +1164,18 @@ function TradingJournal({ user, handleLogout }) {
     localStorage.setItem('themeV12', theme);
   }, [theme]);
   
-  // --- [UPDATED] Function to save settings to Firestore ---
+  useEffect(() => {
+    function handleClickOutside(event) {
+        if (dateFilterRef.current && !dateFilterRef.current.contains(event.target)) {
+            setIsDateFilterOpen(false);
+        }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dateFilterRef]);
+
   const saveSettings = async (newSettings) => {
       if (!user) {
           console.error("Cannot save settings, no user logged in.");
@@ -1135,7 +1184,7 @@ function TradingJournal({ user, handleLogout }) {
       const settingsDocPath = `users/${user.uid}/profile/settings`;
       try {
           await setDoc(doc(db, settingsDocPath), newSettings, { merge: true });
-          setSettings(newSettings); // Update local state on successful save
+          setSettings(newSettings);
           setIsSettingsModalOpen(false);
       } catch (error) {
           console.error("Error saving settings to Firestore:", error);
@@ -1203,20 +1252,52 @@ function TradingJournal({ user, handleLogout }) {
   const handleDayClick = (dateObject) => setSelectedCalendarDate(dateObject);
   const handleOpenTradeFromCalendar = (trade) => { setSelectedCalendarDate(null); setViewingTrade(trade); };
   
-  // --- [UPDATED] Calculation logic to use settings.startingEquity ---
-  const { trades, dashboardStats, advancedStats, dailyStats, consistencyByDay } = useMemo(() => {
-    const tradesOnly = transactions.filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
-    const deposits = transactions.filter(tx => tx.type === 'Deposit').reduce((sum, tx) => sum + tx.pnl, 0);
-    const withdrawals = transactions.filter(tx => tx.type === 'Withdrawal').reduce((sum, tx) => sum + tx.pnl, 0);
+  const filteredByDateTransactions = useMemo(() => {
+    if (!startDate && !endDate) {
+        return transactions;
+    }
+    return transactions.filter(tx => {
+        const txDate = tx.date.toDate();
+        const start = startDate ? new Date(new Date(startDate).setHours(0, 0, 0, 0)) : null;
+        const end = endDate ? new Date(new Date(endDate).setHours(23, 59, 59, 999)) : null;
+
+        const startDateMatch = !start || txDate >= start;
+        const endDateMatch = !end || txDate <= end;
+
+        return startDateMatch && endDateMatch;
+    });
+  }, [transactions, startDate, endDate]);
+
+  const startingEquityForChart = useMemo(() => {
+      if (!startDate) return 0;
+      const start = new Date(new Date(startDate).setHours(0, 0, 0, 0));
+      
+      const priorTransactions = transactions.filter(tx => tx.date.toDate() < start);
+      
+      return priorTransactions.reduce((sum, tx) => sum + tx.pnl, 0);
+
+  }, [transactions, startDate]);
+
+  const { dashboardStats, advancedStats, dailyStats, consistencyByDay } = useMemo(() => {
+    const sourceData = filteredByDateTransactions;
     
-    const totalPnl = transactions.reduce((sum, tx) => sum + tx.pnl, 0);
-    const currentEquity = totalPnl; // Reverted to original calculation
+    const tradesOnly = sourceData.filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
+    const deposits = sourceData.filter(tx => tx.type === 'Deposit').reduce((sum, tx) => sum + tx.pnl, 0);
+    const withdrawals = sourceData.filter(tx => tx.type === 'Withdrawal').reduce((sum, tx) => sum + tx.pnl, 0);
+    
+    const totalPnl = sourceData.reduce((sum, tx) => sum + tx.pnl, 0);
+    const currentEquity = startingEquityForChart + totalPnl;
 
     const todayStr = new Date().toDateString();
     const todaysTrades = transactions.filter(tx => (tx.type === 'Buy' || tx.type === 'Sell') && tx.date.toDate().toDateString() === todayStr);
     const todaysPnl = todaysTrades.reduce((sum, tx) => sum + tx.pnl, 0);
-    const profitTargetValue = (settings.startingEquity * settings.dailyProfitTarget) / 100;
-    const lossLimitValue = -Math.abs((settings.startingEquity * settings.dailyLossLimit) / 100);
+    const profitTargetValue = settings.dailyProfitTarget.unit === '%'
+        ? (settings.startingEquity * settings.dailyProfitTarget.value) / 100
+        : settings.dailyProfitTarget.value;
+
+    const lossLimitValue = settings.dailyLossLimit.unit === '%'
+        ? -Math.abs((settings.startingEquity * settings.dailyLossLimit.value) / 100)
+        : -Math.abs(settings.dailyLossLimit.value);
 
     const dailyStats = {
         pnl: todaysPnl,
@@ -1229,8 +1310,12 @@ function TradingJournal({ user, handleLogout }) {
     const calculateConsistencyForDay = (dailyTrades, settings) => {
         if (dailyTrades.length === 0) return 'NO_TRADES';
         const dailyPnl = dailyTrades.reduce((sum, tx) => sum + tx.pnl, 0);
-        const profitTarget = (settings.startingEquity * settings.dailyProfitTarget) / 100;
-        const lossLimit = -Math.abs((settings.startingEquity * settings.dailyLossLimit) / 100);
+        const profitTarget = settings.dailyProfitTarget.unit === '%'
+            ? (settings.startingEquity * settings.dailyProfitTarget.value) / 100
+            : settings.dailyProfitTarget.value;
+        const lossLimit = settings.dailyLossLimit.unit === '%'
+            ? -Math.abs((settings.startingEquity * settings.dailyLossLimit.value) / 100)
+            : -Math.abs(settings.dailyLossLimit.value);
 
         if (dailyPnl <= lossLimit) return 'LOSS_LIMIT_HIT';
         if (profitTarget > 0 && dailyPnl >= profitTarget) return 'PROFIT_TARGET_HIT';
@@ -1275,8 +1360,9 @@ function TradingJournal({ user, handleLogout }) {
     tradesOnly.forEach(trade => { const day = dayNames[trade.date.toDate().getDay()]; dayPerformance[day].pnl += trade.pnl; dayPerformance[day].count++; });
     const pnlByRating1 = tradesOnly.filter(t => t.rating === 1).reduce((sum, t) => sum + t.pnl, 0);
     const pnlByRating5 = tradesOnly.filter(t => t.rating === 5).reduce((sum, t) => sum + t.pnl, 0);
-    const chronoSortedTransactions = [...transactions].sort((a,b) => a.date.toDate() - b.date.toDate());
-    let peakEquity = 0, maxDrawdownValue = 0, currentDrawdownDuration = 0, longestDrawdownDuration = 0, inDrawdown = false, cumulativeEquity = 0;
+    const chronoSortedTransactions = [...sourceData].sort((a,b) => a.date.toDate() - b.date.toDate());
+    let peakEquity = startingEquityForChart, maxDrawdownValue = 0, currentDrawdownDuration = 0, longestDrawdownDuration = 0, inDrawdown = false;
+    let cumulativeEquity = startingEquityForChart;
     chronoSortedTransactions.forEach(trade => { 
         cumulativeEquity += trade.pnl; 
         if (cumulativeEquity > peakEquity) { 
@@ -1304,17 +1390,20 @@ function TradingJournal({ user, handleLogout }) {
     if (tradesOnly.length >= 10) { if (expectancyValue > 0) suggestion = `Your system is profitable. Aim for trades with an R:R above 1:${(breakEvenRRR + 0.5).toFixed(2)}.`; else suggestion = `Your system is not yet profitable. Focus on increasing Win Rate or aiming for an R:R above 1:${(breakEvenRRR + 0.5).toFixed(2)}.`; }
 
     return {
-        trades: tradesOnly,
         dashboardStats: { totalPnl: totalPnlFromTrades, currentEquity, totalDeposits: deposits, totalWithdrawals: withdrawals, winRate, totalTrades: tradesOnly.length },
         advancedStats: { tagPerformance: { top3, bottom3 }, streaks: { maxWinStreak, maxLossStreak }, dayPerformance, avgWinLossRatio, ratingPerformance: { pnlByRating1, pnlByRating5 }, drawdown: { maxDrawdownValue, maxDrawdownPercent, longestDrawdownDuration }, expectancy: { expectancyValue, breakEvenRRR, suggestion }, winRate, avgTradesPerDay },
         dailyStats,
         consistencyByDay
     };
-  }, [transactions, settings, dailyJournals]);
+  }, [filteredByDateTransactions, settings, dailyJournals, transactions, startingEquityForChart]);
 
   const filteredAndSortedTransactions = useMemo(() => {
-    return [...transactions]
-      .filter(tx => (filterType === 'all' || tx.type === filterType) && ((tx.type !== 'Buy' && tx.type !== 'Sell') || filterStatus === 'all' || tx.status === filterStatus))
+    return [...transactions] // Use all transactions for the history table, not date-filtered ones
+      .filter(tx => {
+        const typeMatch = filterType === 'all' || tx.type === filterType;
+        const statusMatch = (tx.type !== 'Buy' && tx.type !== 'Sell') || filterStatus === 'all' || tx.status === filterStatus;
+        return typeMatch && statusMatch;
+      })
       .sort((a, b) => {
         if (!sortConfig.key) return 0;
         const aValue = sortConfig.key === 'date' ? a.date.toDate() : a[sortConfig.key];
@@ -1335,7 +1424,7 @@ function TradingJournal({ user, handleLogout }) {
   const paginatedTransactions = filteredAndSortedTransactions.slice((currentPage - 1) * TRADES_PER_PAGE, currentPage * TRADES_PER_PAGE);
 
   const monthlyStats = useMemo(() => {
-    const monthTrades = trades.filter(t => { const d = t.date.toDate(); return d.getFullYear() === currentDate.getFullYear() && d.getMonth() === currentDate.getMonth(); });
+    const monthTrades = transactions.filter(t => { const d = t.date.toDate(); return d.getFullYear() === currentDate.getFullYear() && d.getMonth() === currentDate.getMonth(); });
     const total = monthTrades.length;
     const wins = monthTrades.filter(t => t.status === 'Win').length;
     const losses = total - wins;
@@ -1380,7 +1469,7 @@ function TradingJournal({ user, handleLogout }) {
     });
 
     return { total, wins, losses, winRate, totalProfit, totalLoss, netPnl: totalProfit + totalLoss, biasCorrect, biasIncorrect, disciplinedDays, overtradedDays, lossExceededDays };
-  }, [trades, currentDate, dailyJournals, consistencyByDay]);
+  }, [transactions, currentDate, dailyJournals, consistencyByDay]);
 
   const todayString = new Date().toISOString().split('T')[0];
   const todayBias = dailyJournals[todayString] || {};
@@ -1400,6 +1489,24 @@ function TradingJournal({ user, handleLogout }) {
       </button>
     );
   };
+  
+  const setDateRange = (days) => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - days + 1);
+      setStartDate(start.toISOString().split('T')[0]);
+      setEndDate(end.toISOString().split('T')[0]);
+  };
+
+  const clearDateFilter = () => {
+      setStartDate(null);
+      setEndDate(null);
+  };
+  
+  const formatDateForInput = (date) => {
+      if (!date) return '';
+      return new Date(date).toISOString().split('T')[0];
+  }
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white min-h-screen font-sans p-4 sm:p-6 lg:p-8 transition-colors duration-300">
@@ -1447,18 +1554,63 @@ function TradingJournal({ user, handleLogout }) {
               </div>
 
               <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} consistencyByDay={consistencyByDay} />
-
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                  <h2 className="text-xl font-bold mb-4">Equity Curve</h2>
-                  <div className="h-64">
-                      <EquityCurveChart transactions={transactions} startingEquity={0} />
-                  </div>
-              </div>
             </div>
           )}
 
           {activeTab === 'Journal' && (
             <div className="space-y-8">
+               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md relative">
+                  <div className="absolute top-6 left-6 z-20" ref={dateFilterRef}>
+                      <button 
+                          onClick={() => setIsDateFilterOpen(!isDateFilterOpen)}
+                          className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                      >
+                          <CalendarIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                          <span>Pick Date Range</span>
+                      </button>
+                      {isDateFilterOpen && (
+                          <div className="absolute top-full mt-2 bg-white dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 p-4 rounded-lg shadow-xl">
+                              <h3 className="font-bold text-sm mb-3 text-gray-800 dark:text-gray-200">Filter by Date</h3>
+                              <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                      <label htmlFor="start-date" className="text-xs font-medium text-gray-500 dark:text-gray-400">From</label>
+                                      <input 
+                                          type="date" 
+                                          id="start-date"
+                                          value={formatDateForInput(startDate)}
+                                          onChange={(e) => setStartDate(e.target.value)}
+                                          className="mt-1 w-full text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      />
+                                  </div>
+                                  <div>
+                                      <label htmlFor="end-date" className="text-xs font-medium text-gray-500 dark:text-gray-400">To</label>
+                                      <input 
+                                          type="date" 
+                                          id="end-date"
+                                          value={formatDateForInput(endDate)}
+                                          onChange={(e) => setEndDate(e.target.value)}
+                                          className="mt-1 w-full text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      />
+                                  </div>
+                                  <div className="col-span-2 flex space-x-2">
+                                      <button onClick={() => setDateRange(7)} className="w-full text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 py-1.5 px-2 rounded-md transition">7D</button>
+                                      <button onClick={() => setDateRange(30)} className="w-full text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 py-1.5 px-2 rounded-md transition">30D</button>
+                                      <button onClick={() => setDateRange(90)} className="w-full text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 py-1.5 px-2 rounded-md transition">90D</button>
+                                  </div>
+                                  <div className="col-span-2">
+                                      <button onClick={clearDateFilter} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-4 rounded-md transition text-xs">Clear Filter</button>
+                                  </div>
+                              </div>
+                          </div>
+                      )}
+                  </div>
+
+                  <h2 className="text-xl font-bold mb-4 text-center">Equity Curve</h2>
+                  <div className="h-96">
+                      <EquityCurveChart transactions={filteredByDateTransactions} startingEquity={startingEquityForChart} />
+                  </div>
+              </div>
+
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
                   <div className="p-6 flex justify-between items-center"><h2 className="text-xl font-bold">Add New Transaction</h2><button onClick={() => setIsFormVisible(!isFormVisible)} className="text-gray-500 hover:text-gray-800 dark:hover:text-white">{isFormVisible ? <MinusCircleIcon className="w-6 h-6"/> : <PlusCircleIcon className="w-6 h-6"/>}</button></div>
                   {isFormVisible && <div className="border-t border-gray-200 dark:border-gray-700"><AddTransactionForm onAddTransaction={addTransaction} /></div>}
@@ -1492,34 +1644,29 @@ function TradingJournal({ user, handleLogout }) {
 
           {activeTab === 'Analytics' && (
             <div className="space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                      <h2 className="text-xl font-bold mb-4">Monthly Stats</h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                          <div className="w-40 h-40 mx-auto"><DonutChart data={[{ label: 'Profit', value: monthlyStats.totalProfit, color: '#48bb78' }, { label: 'Loss', value: Math.abs(monthlyStats.totalLoss), color: '#f56565' }]}/></div>
-                          <div className="space-y-3 text-sm">
-                              <p className="flex justify-between"><span>Profit:</span> <span className="font-semibold text-green-500">{formatCurrency(monthlyStats.totalProfit)}</span></p>
-                              <p className="flex justify-between"><span>Loss:</span> <span className="font-semibold text-red-500">{formatCurrency(monthlyStats.totalLoss)}</span></p>
-                              <p className="flex justify-between font-bold border-t pt-2"><span>Net P&L:</span> <span className={monthlyStats.netPnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(monthlyStats.netPnl)}</span></p>
-                          </div>
-                      </div>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                      <h2 className="text-xl font-bold mb-4">Monthly Breakdown</h2>
-                      <div className="space-y-3 text-sm">
-                          <p className="flex justify-between"><span>Total Trades:</span> <span className="font-semibold">{monthlyStats.total}</span></p>
-                          <p className="flex justify-between"><span>Winning Trades:</span> <span className="font-semibold">{monthlyStats.wins}</span></p>
-                          <p className="flex justify-between"><span>Losing Trades:</span> <span className="font-semibold">{monthlyStats.losses}</span></p>
-                          <p className="flex justify-between"><span>Win Rate:</span> <span className="font-semibold">{monthlyStats.winRate.toFixed(1)}%</span></p>
-                          <hr className="my-2 border-gray-200 dark:border-gray-700"/>
-                          <p className="flex justify-between"><span>Bias Correct:</span> <span className="font-semibold text-green-500">{monthlyStats.biasCorrect}</span></p>
-                          <p className="flex justify-between"><span>Bias Incorrect:</span> <span className="font-semibold text-red-500">{monthlyStats.biasIncorrect}</span></p>
-                          <hr className="my-2 border-gray-200 dark:border-gray-700"/>
-                          <p className="flex justify-between"><span>Disciplined Days:</span> <span className="font-semibold text-green-500">{monthlyStats.disciplinedDays}</span></p>
-                          <p className="flex justify-between"><span>Overtraded Days:</span> <span className="font-semibold text-yellow-500">{monthlyStats.overtradedDays}</span></p>
-                          <p className="flex justify-between"><span>Loss Exceeded Days:</span> <span className="font-semibold text-red-500">{monthlyStats.lossExceededDays}</span></p>
-                      </div>
-                  </div>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-bold mb-4">Monthly Stats Breakdown</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+                    <div className="w-40 h-40 mx-auto"><DonutChart data={[{ label: 'Profit', value: monthlyStats.totalProfit, color: '#48bb78' }, { label: 'Loss', value: Math.abs(monthlyStats.totalLoss), color: '#f56565' }]}/></div>
+                    <div className="space-y-3 text-sm">
+                        <p className="flex justify-between"><span>Profit:</span> <span className="font-semibold text-green-500">{formatCurrency(monthlyStats.totalProfit)}</span></p>
+                        <p className="flex justify-between"><span>Loss:</span> <span className="font-semibold text-red-500">{formatCurrency(monthlyStats.totalLoss)}</span></p>
+                        <p className="flex justify-between font-bold border-t pt-2"><span>Net P&L:</span> <span className={monthlyStats.netPnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(monthlyStats.netPnl)}</span></p>
+                        <hr className="my-2 border-gray-200 dark:border-gray-700"/>
+                        <p className="flex justify-between"><span>Total Trades:</span> <span className="font-semibold">{monthlyStats.total}</span></p>
+                        <p className="flex justify-between"><span>Winning Trades:</span> <span className="font-semibold">{monthlyStats.wins}</span></p>
+                        <p className="flex justify-between"><span>Losing Trades:</span> <span className="font-semibold">{monthlyStats.losses}</span></p>
+                        <p className="flex justify-between"><span>Win Rate:</span> <span className="font-semibold">{monthlyStats.winRate.toFixed(1)}%</span></p>
+                    </div>
+                    <div className="space-y-3 text-sm">
+                        <p className="flex justify-between"><span>Bias Correct:</span> <span className="font-semibold text-green-500">{monthlyStats.biasCorrect}</span></p>
+                        <p className="flex justify-between"><span>Bias Incorrect:</span> <span className="font-semibold text-red-500">{monthlyStats.biasIncorrect}</span></p>
+                        <hr className="my-2 border-gray-200 dark:border-gray-700"/>
+                        <p className="flex justify-between"><span>Disciplined Days:</span> <span className="font-semibold text-green-500">{monthlyStats.disciplinedDays}</span></p>
+                        <p className="flex justify-between"><span>Overtraded Days:</span> <span className="font-semibold text-yellow-500">{monthlyStats.overtradedDays}</span></p>
+                        <p className="flex justify-between"><span>Loss Exceeded Days:</span> <span className="font-semibold text-red-500">{monthlyStats.lossExceededDays}</span></p>
+                    </div>
+                </div>
               </div>
               <PerformanceByDayChart dayPerformance={advancedStats.dayPerformance} />
               <AdvancedAnalyticsDashboard stats={advancedStats} />
@@ -1555,7 +1702,6 @@ function AuthPage() {
                 await createUserWithEmailAndPassword(auth, email, password);
             }
         } catch (err) {
-            // --- [UPDATED] More user-friendly error handling ---
             if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
                 setError('Wrong email or password.');
             } else if (err.code === 'auth/email-already-in-use') {
