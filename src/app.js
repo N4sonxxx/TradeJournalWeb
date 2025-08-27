@@ -1508,6 +1508,49 @@ function TradingJournal({ user, handleLogout }) {
       return new Date(date).toISOString().split('T')[0];
   }
 
+  const exportToCSV = (data) => {
+    if (!data || data.length === 0) {
+        console.log("No data to export.");
+        return;
+    }
+
+    const headers = ['ID', 'Date', 'Type', 'Status', 'P&L', 'Notes', 'Tags', 'Rating'];
+    
+    const sanitize = (str) => {
+        if (str === null || str === undefined) return '';
+        const s = String(str);
+        if (s.search(/("|,|\n)/g) >= 0) {
+            return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+    };
+
+    const rows = data.map(tx => [
+        tx.id,
+        tx.date.toDate().toISOString(),
+        tx.type,
+        tx.status || 'N/A',
+        tx.pnl,
+        sanitize(tx.notes || ''),
+        sanitize((tx.tags || []).join('; ')),
+        tx.rating || 0
+    ].join(','));
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "trading_journal_export.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+  };
+
   return (
     <div className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white min-h-screen font-sans p-4 sm:p-6 lg:p-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
@@ -1617,7 +1660,20 @@ function TradingJournal({ user, handleLogout }) {
               </div>
 
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md transition-colors duration-300">
-                  <div className="flex flex-col sm:flex-row justify-between items-center mb-4"><h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 sm:mb-0">Transaction History ({filteredAndSortedTransactions.length})</h2><div className="flex items-center space-x-4"><select onChange={(e) => setFilterStatus(e.target.value)} value={filterStatus} className="bg-gray-50 dark:bg-gray-700 border rounded-md py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"><option value="all">All Statuses</option><option value="Win">Win</option><option value="Loss">Loss</option></select><select onChange={(e) => setFilterType(e.target.value)} value={filterType} className="bg-gray-50 dark:bg-gray-700 border rounded-md py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"><option value="all">All Types</option><option value="Buy">Buy</option><option value="Sell">Sell</option><option value="Deposit">Deposit</option><option value="Withdrawal">Withdrawal</option></select></div></div>
+                  <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
+                      <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 sm:mb-0">Transaction History ({filteredAndSortedTransactions.length})</h2>
+                      <div className="flex items-center space-x-4">
+                          <select onChange={(e) => setFilterStatus(e.target.value)} value={filterStatus} className="bg-gray-50 dark:bg-gray-700 border rounded-md py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"><option value="all">All Statuses</option><option value="Win">Win</option><option value="Loss">Loss</option></select>
+                          <select onChange={(e) => setFilterType(e.target.value)} value={filterType} className="bg-gray-50 dark:bg-gray-700 border rounded-md py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"><option value="all">All Types</option><option value="Buy">Buy</option><option value="Sell">Sell</option><option value="Deposit">Deposit</option><option value="Withdrawal">Withdrawal</option></select>
+                          <button 
+                              onClick={() => exportToCSV(filteredAndSortedTransactions)}
+                              className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                              title="Export to CSV"
+                          >
+                              <DownloadIcon className="w-5 h-5" />
+                          </button>
+                      </div>
+                  </div>
                   <div className="overflow-x-auto">
                   <table className="w-full text-left">
                       <thead><tr className="border-b border-gray-200 dark:border-gray-700"><th className="p-3 text-sm font-semibold">Details</th><th className="p-3 text-sm font-semibold cursor-pointer" onClick={() => requestSort('date')}>Date ⇅</th><th className="p-3 text-sm font-semibold">Type</th><th className="p-3 text-sm font-semibold">Status</th><th className="p-3 text-sm font-semibold cursor-pointer" onClick={() => requestSort('pnl')}>Amount ⇅</th><th className="p-3 text-sm font-semibold">Actions</th></tr></thead>
