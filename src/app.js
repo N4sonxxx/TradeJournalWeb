@@ -68,6 +68,7 @@ const BullIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" widt
 const BearIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 16h2a2 2 0 0 0 2-2v-2M8 16H6a2 2 0 0 1-2-2v-2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
 const LogOutIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
 const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
+const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
 
 // --- Components ---
 
@@ -1067,10 +1068,48 @@ const DailyBiasSetter = ({ todayBias, onSaveBias }) => {
     );
 };
 
+const ProfileModal = ({ user, profileData, onSave, onCancel }) => {
+    const [displayName, setDisplayName] = useState(profileData.displayName || '');
+    const [dob, setDob] = useState(profileData.dob || '');
+
+    const handleSave = () => {
+        onSave({ displayName, dob });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">My Profile</h2>
+                    <button onClick={onCancel} className="text-gray-500 hover:text-gray-800 dark:hover:text-white"><CloseIcon className="w-6 h-6"/></button>
+                </div>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Display Name</label>
+                        <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-700 border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Email</label>
+                        <p className="w-full bg-gray-100 dark:bg-gray-700/50 border rounded-md py-2 px-3 text-gray-500 dark:text-gray-400">{user.email}</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Date of Birth</label>
+                        <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-700 border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    </div>
+                </div>
+                <div className="mt-8 flex justify-end">
+                    <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition">Save Profile</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- Main Trading Journal Component (Refactored from App) ---
 function TradingJournal({ user, handleLogout }) {
   const [transactions, setTransactions] = useState([]);
   const [dailyJournals, setDailyJournals] = useState({});
+  const [profileData, setProfileData] = useState({});
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('themeV12') || 'dark' : 'dark');
   const [settings, setSettings] = useState({
@@ -1080,6 +1119,7 @@ function TradingJournal({ user, handleLogout }) {
       maxTradesPerDay: 5,
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
   const [viewingTrade, setViewingTrade] = useState(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
@@ -1104,6 +1144,7 @@ function TradingJournal({ user, handleLogout }) {
     const tradesCollectionPath = `users/${user.uid}/trades`;
     const journalsCollectionPath = `users/${user.uid}/dailyJournals`;
     const settingsDocPath = `users/${user.uid}/profile/settings`;
+    const profileDocPath = `users/${user.uid}/profile/info`;
 
     const q = query(collection(db, tradesCollectionPath), orderBy("date", "desc"));
     const unsubscribeTrades = onSnapshot(q, (querySnapshot) => {
@@ -1147,11 +1188,20 @@ function TradingJournal({ user, handleLogout }) {
         console.error("Error fetching settings:", error);
     });
 
+    const unsubProfile = onSnapshot(doc(db, profileDocPath), (doc) => {
+        if (doc.exists()) {
+            setProfileData(doc.data());
+        }
+    }, (error) => {
+        console.error("Error fetching profile data:", error);
+    });
+
 
     return () => {
         unsubscribeTrades();
         unsubJournals();
         unsubSettings();
+        unsubProfile();
     };
   }, [user]);
 
@@ -1189,6 +1239,21 @@ function TradingJournal({ user, handleLogout }) {
       } catch (error) {
           console.error("Error saving settings to Firestore:", error);
       }
+  };
+
+  const saveProfile = async (newProfileData) => {
+    if (!user) {
+        console.error("Cannot save profile, no user logged in.");
+        return;
+    }
+    const profileDocPath = `users/${user.uid}/profile/info`;
+    try {
+        await setDoc(doc(db, profileDocPath), newProfileData, { merge: true });
+        setProfileData(newProfileData);
+        setIsProfileModalOpen(false);
+    } catch (error) {
+        console.error("Error saving profile to Firestore:", error);
+    }
   };
 
   const addTransaction = async (tx) => {
@@ -1555,9 +1620,14 @@ function TradingJournal({ user, handleLogout }) {
     <div className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white min-h-screen font-sans p-4 sm:p-6 lg:p-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-4xl font-bold">Trading Journal</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">{user.email}</p>
+          <div className="flex items-center space-x-4">
+            <button onClick={() => setIsProfileModalOpen(true)} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                <UserIcon className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-4xl font-bold">Trading Journal</h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">{profileData.displayName || user.email}</p>
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">{theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}</button>
@@ -1735,6 +1805,7 @@ function TradingJournal({ user, handleLogout }) {
         {viewingTrade && <TradeDetailModal trade={viewingTrade} user={user} onSave={saveTransactionDetails} onCancel={() => setViewingTrade(null)} />}
         {selectedCalendarDate && <DailyDetailModal date={selectedCalendarDate} transactions={transactions} dailyJournals={dailyJournals} onSaveJournal={saveDailyJournal} onClose={() => setSelectedCalendarDate(null)} onTradeClick={handleOpenTradeFromCalendar} />}
         {isSettingsModalOpen && <SettingsModal settings={settings} onSave={saveSettings} onCancel={() => setIsSettingsModalOpen(false)} />}
+        {isProfileModalOpen && <ProfileModal user={user} profileData={profileData} onSave={saveProfile} onCancel={() => setIsProfileModalOpen(false)} />}
         {isConfirmationModalOpen && <TradeConfirmationModal onCancel={() => setIsConfirmationModalOpen(false)} />}
       </div>
     </div>
