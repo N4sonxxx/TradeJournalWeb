@@ -1068,6 +1068,32 @@ const DailyBiasSetter = ({ todayBias, onSaveBias }) => {
     );
 };
 
+const MonthlyStatsBreakdown = ({ monthlyStats }) => (
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md h-full">
+        <h2 className="text-xl font-bold mb-4 text-center">Monthly Stats Breakdown</h2>
+        <div className="flex flex-col space-y-4">
+            <div className="w-40 h-40 mx-auto"><DonutChart data={[{ label: 'Profit', value: monthlyStats.totalProfit, color: '#48bb78' }, { label: 'Loss', value: Math.abs(monthlyStats.totalLoss), color: '#f56565' }]}/></div>
+            <div className="space-y-2 text-sm">
+                <p className="flex justify-between"><span>Profit:</span> <span className="font-semibold text-green-500">{formatCurrency(monthlyStats.totalProfit)}</span></p>
+                <p className="flex justify-between"><span>Loss:</span> <span className="font-semibold text-red-500">{formatCurrency(monthlyStats.totalLoss)}</span></p>
+                <p className="flex justify-between font-bold border-t border-gray-200 dark:border-gray-700 pt-2 mt-2"><span>Net P&L:</span> <span className={monthlyStats.netPnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(monthlyStats.netPnl)}</span></p>
+                <hr className="my-2 border-gray-200 dark:border-gray-700"/>
+                <p className="flex justify-between"><span>Total Trades:</span> <span className="font-semibold">{monthlyStats.total}</span></p>
+                <p className="flex justify-between"><span>Winning Trades:</span> <span className="font-semibold">{monthlyStats.wins}</span></p>
+                <p className="flex justify-between"><span>Losing Trades:</span> <span className="font-semibold">{monthlyStats.losses}</span></p>
+                <p className="flex justify-between"><span>Win Rate:</span> <span className="font-semibold">{monthlyStats.winRate.toFixed(1)}%</span></p>
+                 <hr className="my-2 border-gray-200 dark:border-gray-700"/>
+                <p className="flex justify-between"><span>Bias Correct:</span> <span className="font-semibold text-green-500">{monthlyStats.biasCorrect}</span></p>
+                <p className="flex justify-between"><span>Bias Incorrect:</span> <span className="font-semibold text-red-500">{monthlyStats.biasIncorrect}</span></p>
+                <hr className="my-2 border-gray-200 dark:border-gray-700"/>
+                <p className="flex justify-between"><span>Disciplined Days:</span> <span className="font-semibold text-green-500">{monthlyStats.disciplinedDays}</span></p>
+                <p className="flex justify-between"><span>Overtraded Days:</span> <span className="font-semibold text-yellow-500">{monthlyStats.overtradedDays}</span></p>
+                <p className="flex justify-between"><span>Loss Exceeded Days:</span> <span className="font-semibold text-red-500">{monthlyStats.lossExceededDays}</span></p>
+            </div>
+        </div>
+    </div>
+);
+
 const ProfileModal = ({ user, profileData, onSave, onCancel }) => {
     const [displayName, setDisplayName] = useState(profileData.displayName || '');
     const [dob, setDob] = useState(profileData.dob || '');
@@ -1666,7 +1692,14 @@ function TradingJournal({ user, handleLogout }) {
                   </button>
               </div>
 
-              <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} consistencyByDay={consistencyByDay} />
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <div className="xl:col-span-2">
+                    <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} consistencyByDay={consistencyByDay} />
+                </div>
+                <div className="xl:col-span-1">
+                    <MonthlyStatsBreakdown monthlyStats={monthlyStats} />
+                </div>
+              </div>
             </div>
           )}
 
@@ -1770,30 +1803,6 @@ function TradingJournal({ user, handleLogout }) {
 
           {activeTab === 'Analytics' && (
             <div className="space-y-8">
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                <h2 className="text-xl font-bold mb-4">Monthly Stats Breakdown</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-                    <div className="w-40 h-40 mx-auto"><DonutChart data={[{ label: 'Profit', value: monthlyStats.totalProfit, color: '#48bb78' }, { label: 'Loss', value: Math.abs(monthlyStats.totalLoss), color: '#f56565' }]}/></div>
-                    <div className="space-y-3 text-sm">
-                        <p className="flex justify-between"><span>Profit:</span> <span className="font-semibold text-green-500">{formatCurrency(monthlyStats.totalProfit)}</span></p>
-                        <p className="flex justify-between"><span>Loss:</span> <span className="font-semibold text-red-500">{formatCurrency(monthlyStats.totalLoss)}</span></p>
-                        <p className="flex justify-between font-bold border-t pt-2"><span>Net P&L:</span> <span className={monthlyStats.netPnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(monthlyStats.netPnl)}</span></p>
-                        <hr className="my-2 border-gray-200 dark:border-gray-700"/>
-                        <p className="flex justify-between"><span>Total Trades:</span> <span className="font-semibold">{monthlyStats.total}</span></p>
-                        <p className="flex justify-between"><span>Winning Trades:</span> <span className="font-semibold">{monthlyStats.wins}</span></p>
-                        <p className="flex justify-between"><span>Losing Trades:</span> <span className="font-semibold">{monthlyStats.losses}</span></p>
-                        <p className="flex justify-between"><span>Win Rate:</span> <span className="font-semibold">{monthlyStats.winRate.toFixed(1)}%</span></p>
-                    </div>
-                    <div className="space-y-3 text-sm">
-                        <p className="flex justify-between"><span>Bias Correct:</span> <span className="font-semibold text-green-500">{monthlyStats.biasCorrect}</span></p>
-                        <p className="flex justify-between"><span>Bias Incorrect:</span> <span className="font-semibold text-red-500">{monthlyStats.biasIncorrect}</span></p>
-                        <hr className="my-2 border-gray-200 dark:border-gray-700"/>
-                        <p className="flex justify-between"><span>Disciplined Days:</span> <span className="font-semibold text-green-500">{monthlyStats.disciplinedDays}</span></p>
-                        <p className="flex justify-between"><span>Overtraded Days:</span> <span className="font-semibold text-yellow-500">{monthlyStats.overtradedDays}</span></p>
-                        <p className="flex justify-between"><span>Loss Exceeded Days:</span> <span className="font-semibold text-red-500">{monthlyStats.lossExceededDays}</span></p>
-                    </div>
-                </div>
-              </div>
               <PerformanceByDayChart dayPerformance={advancedStats.dayPerformance} />
               <AdvancedAnalyticsDashboard stats={advancedStats} />
               <TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} />
@@ -1893,7 +1902,7 @@ function AuthPage() {
                 </form>
                 <div className="text-sm text-center">
                     <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
-                        {isLogin ? 'Need an account? Register' : 'Have an account? Sign in'}
+                        {isLogin ? 'Need an account? Register now' : 'Have an account? Sign in'}
                     </button>
                 </div>
             </div>
@@ -1933,3 +1942,4 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
