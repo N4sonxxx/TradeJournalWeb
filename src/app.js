@@ -1696,7 +1696,7 @@ function TradingJournal({ user, handleLogout }) {
                 <div className="xl:col-span-2">
                     <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} consistencyByDay={consistencyByDay} />
                 </div>
-                <div className="xl:col-span-1">
+                <div className="hidden xl:block xl:col-span-1">
                     <MonthlyStatsBreakdown monthlyStats={monthlyStats} />
                 </div>
               </div>
@@ -1803,6 +1803,9 @@ function TradingJournal({ user, handleLogout }) {
 
           {activeTab === 'Analytics' && (
             <div className="space-y-8">
+              <div className="xl:hidden">
+                <MonthlyStatsBreakdown monthlyStats={monthlyStats} />
+              </div>
               <PerformanceByDayChart dayPerformance={advancedStats.dayPerformance} />
               <AdvancedAnalyticsDashboard stats={advancedStats} />
               <TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} />
