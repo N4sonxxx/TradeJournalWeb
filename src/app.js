@@ -7,7 +7,8 @@ import {
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, 
     signOut, 
-    onAuthStateChanged 
+    onAuthStateChanged,
+    sendPasswordResetEmail
 } from 'firebase/auth';
 import { 
     getFirestore, 
@@ -1830,6 +1831,7 @@ function AuthPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isForgotPasswordModalOpen, setIsForgotPasswordModalOpen] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -1853,65 +1855,151 @@ function AuthPage() {
     };
 
     return (
-        <div className="bg-gray-100 dark:bg-gray-900 min-h-screen flex items-center justify-center">
-            <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-                <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-                        {isLogin ? 'Sign in to your account' : 'Create a new account'}
-                    </h2>
-                </div>
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div className="rounded-md shadow-sm -space-y-px">
+        <>
+            <div className="bg-gray-100 dark:bg-gray-900 min-h-screen flex items-center justify-center">
+                <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                    <div>
+                        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+                            {isLogin ? 'Sign in to your account' : 'Create a new account'}
+                        </h2>
+                    </div>
+                    <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                        <div className="rounded-md shadow-sm -space-y-px">
+                            <div>
+                                <label htmlFor="email-address" className="sr-only">Email address</label>
+                                <input
+                                    id="email-address"
+                                    name="email"
+                                    type="email"
+                                    autoComplete="email"
+                                    required
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-700 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                    placeholder="Email address"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="password" className="sr-only">Password</label>
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type="password"
+                                    autoComplete="current-password"
+                                    required
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-700 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                    placeholder="Password"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end">
+                            <div className="text-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsForgotPasswordModalOpen(true)}
+                                    className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                >
+                                    Forgot your password?
+                                </button>
+                            </div>
+                        </div>
+
+                        {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+
                         <div>
-                            <label htmlFor="email-address" className="sr-only">Email address</label>
+                            <button
+                                type="submit"
+                                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                {isLogin ? 'Sign in' : 'Register'}
+                            </button>
+                        </div>
+                    </form>
+                    <div className="text-sm text-center">
+                        <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+                            {isLogin ? 'Need an account? Register now' : 'Have an account? Sign in'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {isForgotPasswordModalOpen && <ForgotPasswordModal onCancel={() => setIsForgotPasswordModalOpen(false)} />}
+        </>
+    );
+}
+
+const ForgotPasswordModal = ({ onCancel }) => {
+    const [email, setEmail] = useState('');
+    const [error, setError] = useState('');
+    const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handlePasswordReset = async (e) => {
+        e.preventDefault();
+        setError('');
+        setMessage('');
+        setLoading(true);
+        try {
+            await sendPasswordResetEmail(auth, email);
+            setMessage('Password reset email sent! Please check your inbox.');
+        } catch (err) {
+            if (err.code === 'auth/user-not-found') {
+                setError('No user found with this email address.');
+            } else {
+                setError('Failed to send password reset email. Please try again.');
+            }
+            console.error("Password reset error:", err);
+        }
+        setLoading(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Reset Password</h2>
+                    <button onClick={onCancel} className="text-gray-500 hover:text-gray-800 dark:hover:text-white"><CloseIcon className="w-6 h-6"/></button>
+                </div>
+                {message ? (
+                    <div className="text-center">
+                        <p className="text-green-500">{message}</p>
+                        <button onClick={onCancel} className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition">Close</button>
+                    </div>
+                ) : (
+                    <form onSubmit={handlePasswordReset}>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Enter the email address associated with your account, and we'll send you a link to reset your password.</p>
+                        <div>
+                            <label htmlFor="reset-email" className="sr-only">Email address</label>
                             <input
-                                id="email-address"
+                                id="reset-email"
                                 name="email"
                                 type="email"
                                 autoComplete="email"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-700 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                 placeholder="Email address"
                             />
                         </div>
-                        <div>
-                            <label htmlFor="password" className="sr-only">Password</label>
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                autoComplete="current-password"
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-700 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                                placeholder="Password"
-                            />
+                        {error && <p className="text-sm text-red-500 text-center mt-4">{error}</p>}
+                        <div className="mt-6">
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                            >
+                                {loading ? 'Sending...' : 'Send Reset Link'}
+                            </button>
                         </div>
-                    </div>
-
-                    {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-
-                    <div>
-                        <button
-                            type="submit"
-                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                            {isLogin ? 'Sign in' : 'Register'}
-                        </button>
-                    </div>
-                </form>
-                <div className="text-sm text-center">
-                    <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
-                        {isLogin ? 'Need an account? Register now' : 'Have an account? Sign in'}
-                    </button>
-                </div>
+                    </form>
+                )}
             </div>
         </div>
     );
-}
+};
 
 
 // --- Top-Level App Component ---
