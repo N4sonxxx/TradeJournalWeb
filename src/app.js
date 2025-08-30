@@ -42,6 +42,61 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const auth = getAuth(app);
 
+// --- Gemini API Helper ---
+const callGeminiAPI = async (userQuery, systemInstruction, useGrounding = false) => {
+    const apiKey = ""; // This is intentionally left blank.
+    const model = 'gemini-2.5-flash-preview-05-20';
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const payload = {
+        contents: [{ parts: [{ text: userQuery }] }],
+        systemInstruction: {
+            parts: [{ text: systemInstruction }]
+        },
+    };
+
+    if (useGrounding) {
+        payload.tools = [{ "google_search": {} }];
+    }
+
+    let attempts = 0;
+    const maxAttempts = 5;
+    while (attempts < maxAttempts) {
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.json();
+                console.error('Gemini API Error:', errorBody);
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                return candidate.content.parts[0].text;
+            } else {
+                console.error("Unexpected API response structure:", result);
+                throw new Error('Invalid response structure from API.');
+            }
+        } catch (error) {
+            attempts++;
+            if (attempts >= maxAttempts) {
+                console.error('Max retry attempts reached for Gemini API call.');
+                throw error;
+            }
+            const delay = Math.pow(2, attempts) * 100; // Exponential backoff
+            await new Promise(res => setTimeout(res, delay));
+        }
+    }
+};
+
+
 // --- Helper Functions & Icons ---
 const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
 const CalendarIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
@@ -70,6 +125,8 @@ const BearIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" widt
 const LogOutIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
 const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
 const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
+const MagicWandIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 4V2"/><path d="M15 10V8"/><path d="M12.5 6.5L14 5"/><path d="M12.5 11.5L14 13"/><path d="M5 4V2"/><path d="M5 10V8"/><path d="M7.5 6.5L6 5"/><path d="M7.5 11.5L6 13"/><path d="M10 22v-8"/><path d="m15 22-3-3-3 3"/><path d="M20 15h-2"/><path d="M4 15H2"/><path d="m17.5 12.5-1.5 1.5"/><path d="m6.5 12.5-1.5 1.5"/></svg>;
+
 
 // --- Components ---
 
@@ -265,6 +322,9 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
     const [imageUrl, setImageUrl] = useState(trade.imageUrl || '');
     const [saveError, setSaveError] = useState('');
     const fileInputRef = React.useRef(null);
+    const [aiAnalysis, setAiAnalysis] = useState('');
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisError, setAnalysisError] = useState('');
 
     const isTrade = type === 'Buy' || type === 'Sell';
 
@@ -273,6 +333,42 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
         setImageUrl('');
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
+        }
+    };
+
+    const handleAiAnalysis = async () => {
+        if (!notes) {
+            setAnalysisError("Please write some notes about your trade before analyzing.");
+            return;
+        }
+        setIsAnalyzing(true);
+        setAnalysisError('');
+        setAiAnalysis('');
+
+        const systemInstruction = `You are a professional trading coach. Analyze the following trade journal entry. The user will provide the trade type, P&L, and their personal notes. Your task is to:
+1.  Provide constructive feedback on their rationale.
+2.  Identify potential psychological biases (like FOMO, revenge trading, confirmation bias) based on their notes.
+3.  Offer actionable advice for future trades.
+4.  Do NOT give financial advice. Focus on the process, psychology, and execution based ONLY on the information provided.
+5.  Keep your analysis concise, empathetic, and encouraging. Use markdown for formatting. Start with a brief summary of the trade.`;
+
+        const userQuery = `
+            Please analyze my trade:
+            - Trade Type: ${type}
+            - Profit/Loss: ${formatCurrency(pnl)} (${pnl >= 0 ? 'Win' : 'Loss'})
+            - My Tags: ${tags || 'None'}
+            - My Rating: ${rating}/5
+            - My Notes: "${notes}"
+        `;
+
+        try {
+            const analysis = await callGeminiAPI(userQuery, systemInstruction);
+            setAiAnalysis(analysis);
+        } catch (error) {
+            console.error("AI Analysis Error:", error);
+            setAnalysisError("Sorry, the AI analysis failed. Please try again later.");
+        } finally {
+            setIsAnalyzing(false);
         }
     };
 
@@ -401,6 +497,28 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
                                 <label htmlFor="notes" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Notes & Trade Rationale</label>
                                 <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows="5" placeholder="Write your analysis, entry reasons, and lessons learned..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
                             </div>
+                            
+                            {/* --- GEMINI AI ANALYSIS SECTION --- */}
+                            <div className="space-y-2">
+                                <button
+                                    onClick={handleAiAnalysis}
+                                    disabled={isAnalyzing}
+                                    className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 disabled:opacity-60"
+                                >
+                                    <MagicWandIcon className="w-5 h-5" />
+                                    <span>{isAnalyzing ? 'Analyzing...' : '✨ Get AI Trade Analysis'}</span>
+                                </button>
+                                {analysisError && <p className="text-red-500 text-sm text-center">{analysisError}</p>}
+                                {isAnalyzing && <div className="text-center text-sm text-gray-500 dark:text-gray-400">The AI coach is reviewing your trade...</div>}
+                                {aiAnalysis && (
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 mt-2">
+                                        <h4 className="font-bold text-md mb-2 text-gray-800 dark:text-gray-200 flex items-center"><MagicWandIcon className="w-5 h-5 mr-2 text-purple-500"/> AI Coach Feedback</h4>
+                                        <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiAnalysis.replace(/\n/g, '<br />') }} />
+                                    </div>
+                                )}
+                            </div>
+                            {/* --- END GEMINI AI ANALYSIS SECTION --- */}
+
                             <div>
                                 <label htmlFor="tags" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Tags (comma separated)</label>
                                 <input id="tags" type="text" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g. breakout, fomo, discipline" className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
@@ -1028,8 +1146,11 @@ const TradeConfirmationModal = ({ onCancel }) => {
     );
 };
 
-const DailyBiasSetter = ({ todayBias, onSaveBias }) => {
+const DailyBriefingAndBiasSetter = ({ todayBias, onSaveBias }) => {
     const [reason, setReason] = useState(todayBias.reason || '');
+    const [briefing, setBriefing] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [briefingError, setBriefingError] = useState('');
 
     useEffect(() => {
         setReason(todayBias.reason || '');
@@ -1039,10 +1160,50 @@ const DailyBiasSetter = ({ todayBias, onSaveBias }) => {
         onSaveBias({ ...todayBias, reason });
     };
 
+    const handleGetBriefing = async () => {
+        setIsGenerating(true);
+        setBriefingError('');
+        setBriefing('');
+
+        const systemInstruction = `You are a financial analyst providing a morning briefing. Your audience is a retail trader.
+1.  Provide a concise, easy-to-understand summary of the most important global financial news from the last 24 hours that could impact the US stock market today.
+2.  Mention key economic data releases, central bank announcements, or major geopolitical events.
+3.  Conclude with a potential market sentiment or bias (e.g., "sentiment appears cautiously optimistic," or "markets may be risk-averse today due to...").
+4.  Keep it brief, under 150 words. Use markdown for formatting.`;
+
+        const userQuery = "What is the latest financial news and market sentiment for today?";
+
+        try {
+            const result = await callGeminiAPI(userQuery, systemInstruction, true); // useGrounding = true
+            setBriefing(result);
+        } catch (error) {
+            console.error("AI Briefing Error:", error);
+            setBriefingError("Failed to generate briefing. Please try again later.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h3 className="font-bold text-lg mb-4">Daily Bias Setter</h3>
+            <h3 className="font-bold text-lg mb-4">Daily Briefing & Bias</h3>
             <div className="space-y-4">
+                {/* --- GEMINI AI BRIEFING SECTION --- */}
+                <div className="space-y-2">
+                    <button onClick={handleGetBriefing} disabled={isGenerating} className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 disabled:opacity-60">
+                         <MagicWandIcon className="w-5 h-5" />
+                         <span>{isGenerating ? 'Generating...' : '✨ Get Daily Market Briefing'}</span>
+                    </button>
+                    {briefingError && <p className="text-red-500 text-sm text-center">{briefingError}</p>}
+                    {isGenerating && <div className="text-center text-sm text-gray-500 dark:text-gray-400">Fetching latest market news...</div>}
+                    {briefing && (
+                        <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 mt-2">
+                            <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: briefing.replace(/\n/g, '<br />') }} />
+                        </div>
+                    )}
+                </div>
+                {/* --- END GEMINI AI BRIEFING SECTION --- */}
+                <hr className="border-gray-200 dark:border-gray-700"/>
                 <div className="flex justify-around">
                     <button onClick={() => onSaveBias({ ...todayBias, bias: 'bullish' })} className={`p-4 rounded-lg w-full mr-2 transition ${todayBias.bias === 'bullish' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}>
                         <BullIcon className="w-8 h-8 mx-auto" />
@@ -1054,15 +1215,8 @@ const DailyBiasSetter = ({ todayBias, onSaveBias }) => {
                     </button>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Reason for Bias</label>
-                    <textarea 
-                        value={reason} 
-                        onChange={(e) => setReason(e.target.value)}
-                        onBlur={handleSave} // Save when user clicks away
-                        rows="3" 
-                        placeholder="Why this bias?" 
-                        className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    />
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Reason for Your Bias</label>
+                    <textarea value={reason} onChange={(e) => setReason(e.target.value)} onBlur={handleSave} rows="3" placeholder="Why this bias? Consider the market briefing and your own analysis." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
                 </div>
             </div>
         </div>
@@ -1672,15 +1826,21 @@ function TradingJournal({ user, handleLogout }) {
           {activeTab === 'Dashboard' && (
             <div className="space-y-8">
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                  <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                  <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <DashboardCard title="Current Equity" value={formatCurrency(dashboardStats.currentEquity)} valueColor="text-blue-500" icon={<TargetIcon className="w-6 h-6 text-blue-500" />} />
                       <DashboardCard title="Total P&L (Trades Only)" value={formatCurrency(dashboardStats.totalPnl)} valueColor={dashboardStats.totalPnl >= 0 ? 'text-green-500' : 'text-red-500'} icon={<DollarSignIcon className="w-6 h-6 text-green-500" />} />
                       <DashboardCard title="Win Rate" value={`${(dashboardStats.winRate * 100).toFixed(1)}%`} valueColor="text-indigo-500" icon={<PercentIcon className="w-6 h-6 text-indigo-500" />} subValue={`${dashboardStats.totalTrades} trades`} />
                       <DashboardCard title="Total Deposits" value={formatCurrency(dashboardStats.totalDeposits)} valueColor="text-yellow-500" icon={<PlusCircleIcon className="w-6 h-6 text-yellow-500" />} />
                       <DashboardCard title="Total Withdrawals" value={formatCurrency(dashboardStats.totalWithdrawals)} valueColor="text-orange-500" icon={<MinusCircleIcon className="w-6 h-6 text-orange-500" />} />
-                      <DailyBiasSetter todayBias={todayBias} onSaveBias={(biasData) => saveDailyJournal(todayString, biasData)} />
+                      <button onClick={() => setIsConfirmationModalOpen(true)} className="sm:col-span-2 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-300">
+                        <ClipboardCheckIcon className="w-8 h-8 mr-4" />
+                        <span className="text-lg font-bold">Launch Pre-Trade Checklist</span>
+                      </button>
                   </div>
-                  <ConsistencyTracker dailyStats={dailyStats} settings={settings} onOpenSettings={() => setIsSettingsModalOpen(true)} />
+                   <div className="lg:col-span-1 grid grid-rows-2 gap-8">
+                       <DailyBriefingAndBiasSetter todayBias={todayBias} onSaveBias={(biasData) => saveDailyJournal(todayString, biasData)} />
+                       <ConsistencyTracker dailyStats={dailyStats} settings={settings} onOpenSettings={() => setIsSettingsModalOpen(true)} />
+                   </div>
               </div>
               
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">

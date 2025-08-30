@@ -1,52 +1,75 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const cors = require("cors")({origin: true});
+const nodemailer = require("nodemailer");
+
 admin.initializeApp();
 
-exports.migrateData = functions.https.onRequest(async (req, res) => {
-  // IMPORTANT: Replace this with your actual User UID
-  const NEW_USER_ID = "KDy1DReiVyV2C1ryZKZ1MimvXnY2";
+/**
+ * Sends a verification email using Nodemailer.
+ * NOTE: Transporter is initialized inside the function for resilience.
+ */
+exports.sendVerificationEmail = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    // Initialize config and transporter inside the function request.
+    // This prevents container startup errors if config is not yet available.
+    const gmailEmail = functions.config().gmail.email;
+    const gmailPassword = functions.config().gmail.password;
 
-  if (NEW_USER_ID === "PASTE_YOUR_USER_UID_HERE") {
-    functions.logger.error("User UID not set in the function code.");
-    res.status(400).send(
-        "Error: Please set your NEW_USER_ID in the function code.",
-    );
-    return;
-  }
+    if (!gmailEmail || !gmailPassword) {
+      const errorMsg = "Gmail credentials are not configured on the server.";
+      console.error("Configuration Error:", errorMsg);
+      const serverError = "Server configuration error. Contact support.";
+      return res.status(500).json({success: false, error: serverError});
+    }
 
-  const db = admin.firestore();
-  const batch = db.batch();
-
-  try {
-    functions.logger.info(`Starting migration for user: ${NEW_USER_ID}`);
-
-    // Migrate Trades
-    const oldTradesSnapshot = await db.collection("trades").get();
-    functions.logger.info(
-        `Found ${oldTradesSnapshot.size} documents in 'trades'.`,
-    );
-    oldTradesSnapshot.forEach((doc) => {
-      const newDocRef = db.doc(`users/${NEW_USER_ID}/trades/${doc.id}`);
-      batch.set(newDocRef, doc.data());
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: gmailEmail,
+        pass: gmailPassword,
+      },
     });
 
-    // Migrate Journals
-    const oldJournalsSnapshot = await db.collection("dailyJournals").get();
-    functions.logger.info(
-        `Found ${oldJournalsSnapshot.size} documents in 'dailyJournals'.`,
-    );
-    oldJournalsSnapshot.forEach((doc) => {
-      const newDocRef = db.doc(
-          `users/${NEW_USER_ID}/dailyJournals/${doc.id}`,
-      );
-      batch.set(newDocRef, doc.data());
-    });
+    if (req.method !== "POST") {
+      return res.status(405).send("Method Not Allowed");
+    }
 
-    await batch.commit();
-    functions.logger.info("Migration batch committed successfully.");
-    res.status(200).send("Data migration successful!");
-  } catch (error) {
-    functions.logger.error("Migration failed:", error);
-    res.status(500).send(`Migration failed: ${error.message}`);
-  }
+    const {email, code} = req.body;
+
+    if (!email || !code) {
+      const errorMsg = "Email and code are required.";
+      return res.status(400).json({success: false, error: errorMsg});
+    }
+
+    const mailOptions = {
+      from: `"Trading Journal" <${gmailEmail}>`,
+      to: email,
+      subject: "Your Trading Journal Verification Code",
+      html: `
+        <div
+          style="font-family: sans-serif; text-align: center; padding: 20px;"
+        >
+          <h2>Welcome to Your Trading Journal!</h2>
+          <p>Here is your 4-digit verification code:</p>
+          <p
+            style="font-size: 36px; font-weight: bold; letter-spacing: 8px;"
+          >
+            ${code}
+          </p>
+          <p>Enter this code to complete your sign-up.</p>
+        </div>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      return res.status(200).json({success: true});
+    } catch (error) {
+      console.error("Nodemailer Error:", error.toString());
+      const errorMsg = "Failed to send email.";
+      return res.status(500).json({success: false, error: errorMsg});
+    }
+  });
 });
+
