@@ -103,39 +103,182 @@ const callGeminiAPI = async (userQuery, systemInstruction, useGrounding = false,
     }
 };
 
-
 // --- Helper Functions & Icons ---
 const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
-const CalendarIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
-const DollarSignIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
-const TrashIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
-const SunIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>;
-const MoonIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>;
-const TargetIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>;
-const NoteIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M8 10h.01"></path><path d="M12 10h.01"></path><path d="M16 10h.01"></path><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path></svg>;
-const StarIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
-const CloseIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
-const ChevronDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"></polyline></svg>;
-const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
-const MinusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
-const ImageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>;
-const ChevronLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="15 18 9 12 15 6"></polyline></svg>;
-const ChevronRightIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>;
-const SettingsIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+const CalendarIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
+const DollarSignIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
+const TrashIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
+const SunIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>;
+const MoonIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>;
+const TargetIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>;
+const NoteIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M8 10h.01"></path><path d="M12 10h.01"></path><path d="M16 10h.01"></path><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path></svg>;
+const StarIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
+const CloseIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+const ChevronDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"></polyline></svg>;
+const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
+const MinusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
+const ImageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>;
+const ChevronLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="15 18 9 12 15 6"></polyline></svg>;
+const ChevronRightIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>;
+const SettingsIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
 const CheckCircleIcon = ({ className, style }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>;
 const AlertTriangleIcon = ({ className, style }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>;
 const XCircleIcon = ({ className, style }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>;
 const ClipboardCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="m9 14 2 2 4-4"></path></svg>;
 const PercentIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="19" y1="5" x2="5" y2="19"></line><circle cx="6.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></svg>;
-const BullIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 8h2a2 2 0 0 1 2 2v2M8 8H6a2 2 0 0 0-2 2v2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
-const BearIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 16h2a2 2 0 0 0 2-2v-2M8 16H6a2 2 0 0 1-2-2v-2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
-const LogOutIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
-const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
-const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
-const MagicWandIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 4V2"/><path d="M15 10V8"/><path d="M12.5 6.5L14 5"/><path d="M12.5 11.5L14 13"/><path d="M5 4V2"/><path d="M5 10V8"/><path d="M7.5 6.5L6 5"/><path d="M7.5 11.5L6 13"/><path d="M10 22v-8"/><path d="m15 22-3-3-3 3"/><path d="M20 15h-2"/><path d="M4 15H2"/><path d="m17.5 12.5-1.5 1.5"/><path d="m6.5 12.5-1.5 1.5"/></svg>;
+const BullIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 8h2a2 2 0 0 1 2 2v2M8 8H6a2 2 0 0 0-2 2v2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
+const BearIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 16h2a2 2 0 0 0 2-2v-2M8 16H6a2 2 0 0 1-2-2v-2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/><path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z"/></svg>;
+const LogOutIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
+const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
+const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
+const MagicWandIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 4V2"/><path d="M15 10V8"/><path d="M12.5 6.5L14 5"/><path d="M12.5 11.5L14 13"/><path d="M5 4V2"/><path d="M5 10V8"/><path d="M7.5 6.5L6 5"/><path d="M7.5 11.5L6 13"/><path d="M10 22v-8"/><path d="m15 22-3-3-3 3"/><path d="M20 15h-2"/><path d="M4 15H2"/><path d="m17.5 12.5-1.5 1.5"/><path d="m6.5 12.5-1.5 1.5"/></svg>;
+const MessageSquareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>;
+const SendIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>;
 
 
 // --- Components ---
+
+const GeminiChatbot = ({ transactions }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [messages, setMessages] = useState([
+        { role: 'model', text: "Hello! I'm your AI trading coach. Ask me about your recent performance or how to use the app." }
+    ]);
+    const [inputValue, setInputValue] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const messagesEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(scrollToBottom, [messages]);
+
+    const formatMessageText = (text) => {
+        const bolded = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        return bolded.replace(/\n/g, '<br />');
+    };
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        const userMessage = inputValue.trim();
+        if (!userMessage) return;
+
+        setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+        setInputValue('');
+        setIsLoading(true);
+
+        const systemInstruction = `You are a friendly and helpful AI assistant and trading coach for a sophisticated "Trading Journal" web application. Your dual purpose is to:
+        1. Guide users on how to use the app's features.
+        2. Analyze the user's provided trading data to offer insights on past performance and answer questions about their trading history.
+
+        **App Feature Knowledge:**
+        - **Dashboard Tab**: Main overview page with stats, 'Daily Briefing', 'Consistency Tracker', and 'AI Weekly Review'.
+        - **Journal Tab**: Log trades ('Buy'/'Sell') and transactions ('Deposit'/'Withdrawal'). Shows the 'Equity Curve' chart and 'Transaction History'.
+        - **Analytics Tab**: Deeper insights with charts like 'Performance by Day' and a 'Profit Calculator'.
+        - **Calendar**: On the 'Dashboard', gives a monthly P&L overview.
+
+        **Data Analysis Rules:**
+        - You will be provided with a JSON summary of the user's recent trades.
+        - You can answer questions like "What was my biggest loss recently?", "Am I trading too often?", "What patterns do you see in my losing trades based on my tags?".
+        - Analyze the data provided to identify patterns in P&L, trade types, tags, and ratings.
+
+        **CRITICAL RULES:**
+        1.  **NO FINANCIAL ADVICE:** You MUST NOT provide any financial advice, predict market movements, or tell a user whether they should take a specific future trade. Do not give buy or sell signals. Your analysis is strictly historical, based ONLY on the data provided.
+        2.  **EDUCATE, DON'T RECOMMEND:** If a user asks for a direct trade recommendation (e.g., "should I buy EUR/USD?"), politely decline and offer to explain the underlying concepts they should consider when making their own decision.
+        3.  **STAY ON TOPIC:** For general app questions, answer concisely based on the feature summary. If asked something completely unrelated to trading or the app, politely state your purpose.`;
+
+        // Prepare the data context for the AI
+        const recentTrades = transactions.slice(0, 20).map(t => ({
+            date: t.date.toDate().toISOString().split('T')[0],
+            type: t.type,
+            pnl: t.pnl,
+            status: t.status,
+            tags: t.tags || [],
+            rating: t.rating || 0
+        }));
+        const dataContext = JSON.stringify(recentTrades, null, 2);
+
+        const fullUserQuery = `
+Based on my recent trading data below, please answer my question.
+
+My Recent Trading Data (JSON format):
+${dataContext}
+
+My Question:
+"${userMessage}"
+`;
+        try {
+            const response = await callGeminiAPI(fullUserQuery, systemInstruction);
+            setMessages(prev => [...prev, { role: 'model', text: response }]);
+        } catch (error) {
+            console.error("Chatbot API error:", error);
+            setMessages(prev => [...prev, { role: 'model', text: "Sorry, I'm having trouble connecting right now. Please try again later." }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg z-50 transition-transform hover:scale-110"
+                aria-label="Toggle AI Assistant"
+            >
+                <MessageSquareIcon className="w-8 h-8" />
+            </button>
+
+            {isOpen && (
+                <div className="fixed bottom-24 right-6 w-full max-w-sm h-[60vh] bg-white dark:bg-gray-800 rounded-lg shadow-2xl z-50 flex flex-col border border-gray-200 dark:border-gray-700">
+                    <header className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 className="text-lg font-bold">AI Assistant</h3>
+                        <button onClick={() => setIsOpen(false)} className="text-gray-500 hover:text-gray-800 dark:hover:text-white">
+                            <CloseIcon className="w-6 h-6" />
+                        </button>
+                    </header>
+                    <div className="flex-1 p-4 overflow-y-auto">
+                        <div className="space-y-4">
+                            {messages.map((msg, index) => (
+                                <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                                    {msg.role === 'model' && <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-teal-500 flex-shrink-0"></div>}
+                                    <div className={`max-w-xs md:max-w-sm px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-200 dark:bg-gray-700 rounded-bl-none'}`}>
+                                        <p className="text-sm prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: formatMessageText(msg.text) }}></p>
+                                    </div>
+                                </div>
+                            ))}
+                            {isLoading && (
+                                <div className="flex items-end gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-teal-500 flex-shrink-0"></div>
+                                    <div className="max-w-xs md:max-w-sm px-4 py-2 rounded-2xl bg-gray-200 dark:bg-gray-700 rounded-bl-none">
+                                        <div className="flex items-center space-x-1">
+                                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse delay-75"></div>
+                                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse delay-150"></div>
+                                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse delay-300"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={messagesEndRef} />
+                        </div>
+                    </div>
+                    <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center">
+                        <input
+                            type="text"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            placeholder="Ask about the app..."
+                            className="w-full bg-gray-100 dark:bg-gray-600 border-transparent rounded-full py-2 px-4 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            disabled={isLoading}
+                        />
+                        <button type="submit" className="ml-3 text-blue-600 hover:text-blue-500 disabled:opacity-50" disabled={isLoading || !inputValue}>
+                            <SendIcon className="w-6 h-6" />
+                        </button>
+                    </form>
+                </div>
+            )}
+        </>
+    );
+};
 
 const DashboardCard = ({ title, value, icon, valueColor, subValue }) => (
   <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center transition-colors duration-300">
@@ -1064,95 +1207,6 @@ const ConsistencyTracker = ({ dailyStats, settings, onOpenSettings }) => {
     );
 };
 
-const TradeConfirmationModal = ({ onCancel }) => {
-    const [step, setStep] = useState(1);
-    const [answers, setAnswers] = useState({});
-    const [recommendation, setRecommendation] = useState(null);
-
-    const handleAnswer = (question, answer) => {
-        const newAnswers = { ...answers, [question]: answer };
-        setAnswers(newAnswers);
-
-        // --- Decision Tree Logic ---
-        if (step === 1) {
-            if (answer === 'yes') setStep(1.1);
-            else setStep(2);
-        } else if (step === 1.1) {
-            if (answer === 'yes') {
-                setStep(2);
-            } else {
-                setRecommendation({ text: "Use SNR (Support and Resistance)", color: "text-yellow-500" });
-            }
-        } else if (step === 2) {
-            setStep(answer === 'choch' ? 3.1 : 3.2);
-        } else if (step === 3.1) {
-            if (answer === 'yes') setRecommendation({ text: "Enter on OTE (Optimal Trade Entry)", color: "text-green-500" });
-            else setRecommendation({ text: "Enter on Golden Zone", color: "text-green-500" });
-        } else if (step === 3.2) {
-            if (answer === 'yes') setRecommendation({ text: "Proceed with Trade", color: "text-green-500" });
-            else setRecommendation({ text: "Do Not Enter Trade", color: "text-red-500" });
-        }
-    };
-
-    const reset = () => {
-        setStep(1);
-        setAnswers({});
-        setRecommendation(null);
-    };
-
-    const renderStep = () => {
-        if (recommendation) {
-            return (
-                <div className="text-center">
-                    <h3 className="text-lg font-semibold mb-2">Recommendation</h3>
-                    <p className={`text-2xl font-bold ${recommendation.color}`}>{recommendation.text}</p>
-                    <button onClick={reset} className="mt-6 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-md transition">Start Over</button>
-                </div>
-            );
-        }
-
-        switch (step) {
-            case 1:
-                return (<Question title="1. Is there any major news today/tomorrow?" onAnswer={(answer) => handleAnswer(1, answer)} options={['Yes', 'No']} />);
-            case 1.1:
-                return (<Question title="Is the market structure good?" onAnswer={(answer) => handleAnswer(1.1, answer)} options={['Yes', 'No']} />);
-            case 2:
-                return (<Question title="2. Why are you taking this trade?" onAnswer={(answer) => handleAnswer(2, answer)} options={[{label: 'Change of Character', value: 'choch'}, {label: 'Imbalance/FVG', value: 'ifvg'}]} />);
-            case 3.1:
-                return (<Question title="For Choch: Did price sweep any liquidity?" onAnswer={(answer) => handleAnswer(3.1, answer)} options={['Yes', 'No']} />);
-            case 3.2:
-                return (<Question title="For iFVG: Did price sweep liquidity?" onAnswer={(answer) => handleAnswer(3.2, answer)} options={['Yes', 'No']} />);
-            default:
-                return null;
-        }
-    };
-
-    const Question = ({ title, onAnswer, options }) => (
-        <div>
-            <h3 className="text-lg font-semibold mb-4 text-center">{title}</h3>
-            <div className="flex justify-center space-x-4">
-                {options.map(opt => {
-                    const value = typeof opt === 'object' ? opt.value : opt.toLowerCase();
-                    const label = typeof opt === 'object' ? opt.label : opt;
-                    return <button key={value} onClick={() => onAnswer(value)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition">{label}</button>
-                })}
-            </div>
-        </div>
-    );
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-lg">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Trade Confirmation</h2>
-                    <button onClick={onCancel} className="text-gray-500 hover:text-gray-800 dark:hover:text-white"><CloseIcon className="w-6 h-6"/></button>
-                </div>
-                {renderStep()}
-            </div>
-        </div>
-    );
-};
-
 const DailyBriefingAndBiasSetter = ({ todayBias, onSaveBias }) => {
     const [reason, setReason] = useState(todayBias.reason || '');
     const [isGenerating, setIsGenerating] = useState(false);
@@ -1317,7 +1371,6 @@ function TradingJournal({ user, handleLogout }) {
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
   const [viewingTrade, setViewingTrade] = useState(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -1332,6 +1385,9 @@ function TradingJournal({ user, handleLogout }) {
   const [endDate, setEndDate] = useState(null);
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
   const dateFilterRef = useRef(null);
+  const [weeklyReview, setWeeklyReview] = useState('');
+  const [isGeneratingReview, setIsGeneratingReview] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -1540,7 +1596,7 @@ function TradingJournal({ user, handleLogout }) {
 
   }, [transactions, startDate]);
 
-  const { dashboardStats, advancedStats, dailyStats, consistencyByDay } = useMemo(() => {
+  const { dashboardStats, advancedStats, weeklyStats, dailyStats, consistencyByDay } = useMemo(() => {
     const sourceData = filteredByDateTransactions;
     
     const tradesOnly = sourceData.filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
@@ -1599,6 +1655,27 @@ function TradingJournal({ user, handleLogout }) {
         const dailyTrades = tradesByDate[dateStr].filter(tx => tx.type === 'Buy' || tx.type === 'Sell');
         consistencyByDay[dateStr] = calculateConsistencyForDay(dailyTrades, settings);
     }
+    
+    // Weekly Stats Calculation
+    const last7Days = new Date();
+    last7Days.setDate(last7Days.getDate() - 7);
+    const weeklyTrades = transactions.filter(tx => (tx.type === 'Buy' || tx.type === 'Sell') && tx.date.toDate() >= last7Days);
+    const weeklyPnl = weeklyTrades.reduce((sum, tx) => sum + tx.pnl, 0);
+    const weeklyWins = weeklyTrades.filter(t => t.status === 'Win').length;
+    const weeklyLosses = weeklyTrades.filter(t => t.status === 'Loss').length;
+    const weeklyTotalTrades = weeklyTrades.length;
+    const weeklyWinRate = weeklyTotalTrades > 0 ? (weeklyWins / weeklyTotalTrades) * 100 : 0;
+    const bestTrade = weeklyTrades.length > 0 ? Math.max(...weeklyTrades.map(t => t.pnl)) : 0;
+    const worstTrade = weeklyTrades.length > 0 ? Math.min(...weeklyTrades.map(t => t.pnl)) : 0;
+    const weeklyConsistency = { disciplined: 0, overtraded: 0, lossExceeded: 0 };
+    const weeklyDays = new Set(weeklyTrades.map(t => t.date.toDate().toISOString().split('T')[0]));
+    weeklyDays.forEach(dateStr => {
+        const status = consistencyByDay[dateStr];
+        if (status === 'PROFIT_TARGET_HIT' || status === 'DISCIPLINED_WIN' || status === 'DISCIPLINED_LOSS') weeklyConsistency.disciplined++;
+        else if (status === 'OVERTRADED_WIN' || status === 'OVERTRADED_LOSS') weeklyConsistency.overtraded++;
+        else if (status === 'LOSS_LIMIT_HIT') weeklyConsistency.lossExceeded++;
+    });
+
 
     const totalPnlFromTrades = tradesOnly.reduce((sum, t) => sum + t.pnl, 0);
     const winningTrades = tradesOnly.filter(t => t.status === 'Win');
@@ -1654,6 +1731,7 @@ function TradingJournal({ user, handleLogout }) {
     return {
         dashboardStats: { totalPnl: totalPnlFromTrades, currentEquity, totalDeposits: deposits, totalWithdrawals: withdrawals, winRate, totalTrades: tradesOnly.length },
         advancedStats: { tagPerformance: { top3, bottom3 }, streaks: { maxWinStreak, maxLossStreak }, dayPerformance, avgWinLossRatio, ratingPerformance: { pnlByRating1, pnlByRating5 }, drawdown: { maxDrawdownValue, maxDrawdownPercent, longestDrawdownDuration }, expectancy: { expectancyValue, breakEvenRRR, suggestion }, winRate, avgTradesPerDay },
+        weeklyStats: { pnl: weeklyPnl, wins: weeklyWins, losses: weeklyLosses, totalTrades: weeklyTotalTrades, winRate: weeklyWinRate, bestTrade, worstTrade, consistency: weeklyConsistency },
         dailyStats,
         consistencyByDay
     };
@@ -1735,6 +1813,38 @@ function TradingJournal({ user, handleLogout }) {
 
   const todayString = new Date().toISOString().split('T')[0];
   const todayBias = dailyJournals[todayString] || {};
+  
+  const handleGenerateWeeklyReview = async () => {
+        setIsGeneratingReview(true);
+        setReviewError('');
+        setWeeklyReview('');
+
+        const systemInstruction = `You are a trading performance coach providing a weekly review. Analyze the user's data and structure your response into exactly FIVE sections using the following markdown titles: **Weekly Snapshot**, **Major Wins**, **Key Lessons**, **Action Plan**, and **Motivational Tip**.
+- For **Weekly Snapshot**, briefly state the key metrics like P&L and Win Rate.
+- For **Major Wins**, highlight the best trade and disciplined performance.
+- For **Key Lessons**, discuss the worst trade and any patterns of overtrading or hitting loss limits.
+- For **Action Plan**, provide 1-2 concrete, actionable steps for the next week.
+- For **Motivational Tip**, give a short, encouraging closing thought.
+Keep each section concise and to the point. Do not add any other sections or introductory text.`;
+        
+        const userQuery = `Please generate a weekly performance review based on the following data for the last 7 days:
+- Total P&L: ${formatCurrency(weeklyStats.pnl)}
+- Win Rate: ${weeklyStats.winRate.toFixed(1)}%
+- Total Trades: ${weeklyStats.totalTrades} (${weeklyStats.wins} wins, ${weeklyStats.losses} losses)
+- Best Trade P&L: ${formatCurrency(weeklyStats.bestTrade)}
+- Worst Trade P&L: ${formatCurrency(weeklyStats.worstTrade)}
+- Consistency Summary: ${weeklyStats.consistency.disciplined} disciplined days, ${weeklyStats.consistency.overtraded} overtraded days, ${weeklyStats.consistency.lossExceeded} loss-limit days.`;
+
+        try {
+            const review = await callGeminiAPI(userQuery, systemInstruction);
+            setWeeklyReview(review);
+        } catch (error) {
+            console.error("AI Weekly Review Error:", error);
+            setReviewError("Sorry, the AI review failed. Please try again later.");
+        } finally {
+            setIsGeneratingReview(false);
+        }
+    };
 
   const TabButton = ({ tabName }) => {
     const isActive = activeTab === tabName;
@@ -1812,6 +1922,103 @@ function TradingJournal({ user, handleLogout }) {
         document.body.removeChild(link);
     }
   };
+  
+  const WeeklyReviewGenerator = ({ onGenerate, review, isLoading, error, stats }) => {
+    const [currentSlide, setCurrentSlide] = useState(0);
+
+    const slideIcons = {
+        "Weekly Snapshot": <TargetIcon className="w-5 h-5 mr-2 text-blue-500" />,
+        "Major Wins": <CheckCircleIcon className="w-5 h-5 mr-2 text-green-500" />,
+        "Key Lessons": <AlertTriangleIcon className="w-5 h-5 mr-2 text-yellow-500" />,
+        "Action Plan": <ClipboardCheckIcon className="w-5 h-5 mr-2 text-indigo-500" />,
+        "Motivational Tip": <StarIcon className="w-5 h-5 mr-2 text-amber-500" filled={true} />,
+    };
+
+    const parsedReview = useMemo(() => {
+        if (!review) return null;
+        const sections = review.split(/\*\*(.*?)\*\*/).filter(Boolean);
+        const result = [];
+        for (let i = 0; i < sections.length; i += 2) {
+            const title = sections[i].trim();
+            const content = sections[i + 1]?.trim().replace(/^- /gm, '').split('<br />').filter(line => line.trim() !== '');
+            if (title && content) {
+                result.push({ title, content, icon: slideIcons[title] || null });
+            }
+        }
+        return result.length > 0 ? result : null;
+    }, [review]);
+
+    const goToNext = () => {
+        if (parsedReview) {
+            setCurrentSlide(prev => (prev + 1) % parsedReview.length);
+        }
+    };
+
+    const goToPrev = () => {
+        if (parsedReview) {
+            setCurrentSlide(prev => (prev - 1 + parsedReview.length) % parsedReview.length);
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <h3 className="font-bold text-lg mb-4 text-center">AI Weekly Performance Review</h3>
+            <button
+                onClick={onGenerate}
+                disabled={isLoading || stats.totalTrades < 1}
+                className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <MagicWandIcon className="w-5 h-5" />
+                <span>{isLoading ? 'Generating...' : '✨ Get My Weekly Review'}</span>
+            </button>
+            {stats.totalTrades < 1 && !review && <p className="text-xs text-center mt-2 text-gray-400">Trade at least once this week to generate a review.</p>}
+            {error && <p className="text-red-500 text-sm text-center mt-2">{error}</p>}
+            {isLoading && <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">Your AI coach is analyzing your week...</div>}
+            
+            {parsedReview && !isLoading && (
+                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="overflow-hidden relative h-48">
+                        {parsedReview.map((slide, index) => (
+                            <div
+                                key={index}
+                                className="absolute w-full h-full transition-opacity duration-500 ease-in-out"
+                                style={{ opacity: index === currentSlide ? 1 : 0 }}
+                            >
+                                <h4 className="font-bold text-md text-gray-800 dark:text-gray-200 flex items-center">
+                                    {slide.icon}
+                                    {slide.title}
+                                </h4>
+                                <ul className="mt-2 space-y-2 text-sm text-gray-600 dark:text-gray-300 list-disc list-inside">
+                                    {slide.content.map((item, itemIndex) => (
+                                        <li key={itemIndex}>{item}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex items-center justify-center mt-4">
+                        <button onClick={goToPrev} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                            <ChevronLeftIcon className="w-5 h-5" />
+                        </button>
+                        <div className="flex space-x-2 mx-4">
+                            {parsedReview.map((_, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => setCurrentSlide(index)}
+                                    className={`w-2 h-2 rounded-full transition-colors ${currentSlide === index ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                ></button>
+                            ))}
+                        </div>
+                        <button onClick={goToNext} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                            <ChevronRightIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white min-h-screen font-sans p-4 sm:p-6 lg:p-8 transition-colors duration-300">
@@ -1848,14 +2055,11 @@ function TradingJournal({ user, handleLogout }) {
                       <DashboardCard title="Win Rate" value={`${(dashboardStats.winRate * 100).toFixed(1)}%`} valueColor="text-indigo-500" icon={<PercentIcon className="w-6 h-6 text-indigo-500" />} subValue={`${dashboardStats.totalTrades} trades`} />
                       <DashboardCard title="Total Deposits" value={formatCurrency(dashboardStats.totalDeposits)} valueColor="text-yellow-500" icon={<PlusCircleIcon className="w-6 h-6 text-yellow-500" />} />
                       <DashboardCard title="Total Withdrawals" value={formatCurrency(dashboardStats.totalWithdrawals)} valueColor="text-orange-500" icon={<MinusCircleIcon className="w-6 h-6 text-orange-500" />} />
-                      <button onClick={() => setIsConfirmationModalOpen(true)} className="sm:col-span-2 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-300">
-                        <ClipboardCheckIcon className="w-8 h-8 mr-4" />
-                        <span className="text-lg font-bold">Launch Pre-Trade Checklist</span>
-                      </button>
                   </div>
-                   <div className="lg:col-span-1 grid grid-rows-2 gap-8">
+                   <div className="lg:col-span-1 grid grid-rows-3 gap-8">
                        <DailyBriefingAndBiasSetter todayBias={todayBias} onSaveBias={(biasData) => saveDailyJournal(todayString, biasData)} />
                        <ConsistencyTracker dailyStats={dailyStats} settings={settings} onOpenSettings={() => setIsSettingsModalOpen(true)} />
+                       <WeeklyReviewGenerator onGenerate={handleGenerateWeeklyReview} review={weeklyReview} isLoading={isGeneratingReview} error={reviewError} stats={weeklyStats} />
                    </div>
               </div>
               
@@ -1995,7 +2199,7 @@ function TradingJournal({ user, handleLogout }) {
         {selectedCalendarDate && <DailyDetailModal date={selectedCalendarDate} transactions={transactions} dailyJournals={dailyJournals} onSaveJournal={saveDailyJournal} onClose={() => setSelectedCalendarDate(null)} onTradeClick={handleOpenTradeFromCalendar} />}
         {isSettingsModalOpen && <SettingsModal settings={settings} onSave={saveSettings} onCancel={() => setIsSettingsModalOpen(false)} />}
         {isProfileModalOpen && <ProfileModal user={user} profileData={profileData} onSave={saveProfile} onCancel={() => setIsProfileModalOpen(false)} />}
-        {isConfirmationModalOpen && <TradeConfirmationModal onCancel={() => setIsConfirmationModalOpen(false)} />}
+        <GeminiChatbot transactions={transactions} />
       </div>
     </div>
   );
@@ -2207,6 +2411,13 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
+
+
+
+
+
+
 
 
 
