@@ -43,7 +43,7 @@ const storage = getStorage(app);
 const auth = getAuth(app);
 
 // --- Gemini API Helper ---
-const callGeminiAPI = async (userQuery, systemInstruction, useGrounding = false) => {
+const callGeminiAPI = async (userQuery, systemInstruction, useGrounding = false, jsonSchema = null) => {
     const apiKey = "AIzaSyCwiCfrPq6J0deEbYewPDw5bJMgdpJxTag";
     const model = 'gemini-2.5-flash-preview-05-20';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -57,6 +57,13 @@ const callGeminiAPI = async (userQuery, systemInstruction, useGrounding = false)
 
     if (useGrounding) {
         payload.tools = [{ "google_search": {} }];
+    }
+
+    if (jsonSchema) {
+        payload.generationConfig = {
+            responseMimeType: "application/json",
+            responseSchema: jsonSchema,
+        };
     }
 
     let attempts = 0;
@@ -1148,34 +1155,50 @@ const TradeConfirmationModal = ({ onCancel }) => {
 
 const DailyBriefingAndBiasSetter = ({ todayBias, onSaveBias }) => {
     const [reason, setReason] = useState(todayBias.reason || '');
-    const [briefing, setBriefing] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [briefingError, setBriefingError] = useState('');
 
     useEffect(() => {
         setReason(todayBias.reason || '');
-    }, [todayBias.reason]);
+    }, [todayBias]);
 
-    const handleSave = () => {
-        onSaveBias({ ...todayBias, reason });
+    const handleReasonChange = (e) => {
+        setReason(e.target.value);
+    };
+    
+    const handleReasonBlur = () => {
+         onSaveBias({ ...todayBias, reason });
     };
 
     const handleGetBriefing = async () => {
         setIsGenerating(true);
         setBriefingError('');
-        setBriefing('');
 
-        const systemInstruction = `You are a financial analyst providing a morning briefing. Your audience is a retail trader.
-1.  Provide a concise, easy-to-understand summary of the most important global financial news from the last 24 hours that could impact the US stock market today.
-2.  Mention key economic data releases, central bank announcements, or major geopolitical events.
-3.  Conclude with a potential market sentiment or bias (e.g., "sentiment appears cautiously optimistic," or "markets may be risk-averse today due to...").
-4.  Keep it brief, under 150 words. Use markdown for formatting.`;
+        const systemInstruction = `You are a financial analyst providing a morning briefing for a retail trader.
+1.  Analyze the most important global financial news from the last 24 hours that could impact the US stock market today using the provided search tool.
+2.  Provide a concise summary of your reasoning, under 150 words.
+3.  Based on the news, determine the overall market sentiment.
+4.  On the VERY LAST LINE of your response, and ONLY on the last line, write "Bias: bullish" or "Bias: bearish". Do not include any other text on this final line.`;
 
         const userQuery = "What is the latest financial news and market sentiment for today?";
 
         try {
-            const result = await callGeminiAPI(userQuery, systemInstruction, true); // useGrounding = true
-            setBriefing(result);
+            // Call API without JSON schema, but with grounding
+            const fullResponse = await callGeminiAPI(userQuery, systemInstruction, true, null);
+            
+            const lines = fullResponse.trim().split('\n');
+            const lastLine = lines.pop().toLowerCase();
+            
+            let bias = 'bullish'; // Default bias if parsing fails
+            if (lastLine.includes('bearish')) {
+                bias = 'bearish';
+            }
+            
+            const briefing = lines.join('\n').trim();
+            
+            setReason(briefing);
+            onSaveBias({ bias: bias, reason: briefing });
+
         } catch (error) {
             console.error("AI Briefing Error:", error);
             setBriefingError("Failed to generate briefing. Please try again later.");
@@ -1188,7 +1211,6 @@ const DailyBriefingAndBiasSetter = ({ todayBias, onSaveBias }) => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <h3 className="font-bold text-lg mb-4">Daily Briefing & Bias</h3>
             <div className="space-y-4">
-                {/* --- GEMINI AI BRIEFING SECTION --- */}
                 <div className="space-y-2">
                     <button onClick={handleGetBriefing} disabled={isGenerating} className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 disabled:opacity-60">
                          <MagicWandIcon className="w-5 h-5" />
@@ -1196,13 +1218,7 @@ const DailyBriefingAndBiasSetter = ({ todayBias, onSaveBias }) => {
                     </button>
                     {briefingError && <p className="text-red-500 text-sm text-center">{briefingError}</p>}
                     {isGenerating && <div className="text-center text-sm text-gray-500 dark:text-gray-400">Fetching latest market news...</div>}
-                    {briefing && (
-                        <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 mt-2">
-                            <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: briefing.replace(/\n/g, '<br />') }} />
-                        </div>
-                    )}
                 </div>
-                {/* --- END GEMINI AI BRIEFING SECTION --- */}
                 <hr className="border-gray-200 dark:border-gray-700"/>
                 <div className="flex justify-around">
                     <button onClick={() => onSaveBias({ ...todayBias, bias: 'bullish' })} className={`p-4 rounded-lg w-full mr-2 transition ${todayBias.bias === 'bullish' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}>
@@ -1216,7 +1232,7 @@ const DailyBriefingAndBiasSetter = ({ todayBias, onSaveBias }) => {
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Reason for Your Bias</label>
-                    <textarea value={reason} onChange={(e) => setReason(e.target.value)} onBlur={handleSave} rows="3" placeholder="Why this bias? Consider the market briefing and your own analysis." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+                    <textarea value={reason} onChange={handleReasonChange} onBlur={handleReasonBlur} rows="4" placeholder="Click the button above to generate a briefing or write your own analysis." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
                 </div>
             </div>
         </div>
@@ -2191,4 +2207,6 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
+
 
