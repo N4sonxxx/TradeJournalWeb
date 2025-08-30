@@ -1663,6 +1663,22 @@ function TradingJournal({ user, handleLogout }) {
       }
   };
 
+  const saveProfile = async (newProfileData) => {
+    if (!user) {
+        console.error("Cannot save profile, no user logged in.");
+        return;
+    }
+    const profileDocPath = `users/${user.uid}/profile/info`;
+    try {
+        await setDoc(doc(db, profileDocPath), newProfileData, { merge: true });
+        setProfileData(newProfileData);
+        setIsProfileModalOpen(false);
+    } catch (error) {
+        console.error("Error saving profile to Firestore:", error);
+    }
+  };
+
+
   const addTag = async (tagName, tagColor) => {
       if (!user || !tagName) return;
       const tagsCollectionPath = `users/${user.uid}/tags`;
