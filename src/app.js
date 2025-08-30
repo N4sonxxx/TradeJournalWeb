@@ -138,6 +138,54 @@ const SendIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" widt
 
 // --- Components ---
 
+const AddTransactionForm = ({ onAddTransaction }) => {
+    const [type, setType] = useState('Buy');
+    const [pnl, setPnl] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (pnl === '' || isNaN(parseFloat(pnl))) {
+            alert("Please enter a valid number for the amount.");
+            return;
+        }
+
+        let pnlValue = parseFloat(pnl);
+        if (type === 'Withdrawal') pnlValue = -Math.abs(pnlValue);
+        else if (type === 'Deposit') pnlValue = Math.abs(pnlValue);
+
+        onAddTransaction({ type, pnl: pnlValue });
+        setPnl('');
+        setType('Buy');
+    };
+
+    const isTrade = type === 'Buy' || type === 'Sell';
+
+    return (
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Type</label>
+                    <select id="type" value={type} onChange={(e) => setType(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                        <option>Buy</option>
+                        <option>Sell</option>
+                        <option>Deposit</option>
+                        <option>Withdrawal</option>
+                    </select>
+                </div>
+                <div>
+                    <label htmlFor="pnl" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{isTrade ? 'P&L ($)' : 'Amount ($)'}</label>
+                    <input type="number" step="any" id="pnl" value={pnl} onChange={(e) => setPnl(e.target.value)} required className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-md" />
+                </div>
+                <div className="md:pt-6">
+                    <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Add Transaction
+                    </button>
+                </div>
+            </div>
+        </form>
+    );
+};
+
 const GeminiChatbot = ({ transactions }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
@@ -280,6 +328,126 @@ My Question:
     );
 };
 
+const TagManagementPage = ({ tags, transactions, onAddTag, onUpdateTag, onDeleteTag }) => {
+    const [newTagName, setNewTagName] = useState('');
+    const [newTagColor, setNewTagColor] = useState('#4A5568'); // default gray
+    const [editingTag, setEditingTag] = useState(null); // { id, name, color }
+
+    const tagUsage = useMemo(() => {
+        const usageMap = {};
+        tags.forEach(tag => {
+            usageMap[tag.name] = 0;
+        });
+        transactions.forEach(tx => {
+            (tx.tags || []).forEach(tagName => {
+                if (usageMap.hasOwnProperty(tagName)) {
+                    usageMap[tagName]++;
+                }
+            });
+        });
+        return usageMap;
+    }, [tags, transactions]);
+
+    const handleAddTag = (e) => {
+        e.preventDefault();
+        if (newTagName.trim()) {
+            onAddTag(newTagName.trim(), newTagColor);
+            setNewTagName('');
+            setNewTagColor('#4A5568');
+        }
+    };
+
+    const handleUpdateTag = () => {
+        if (editingTag && editingTag.name.trim()) {
+            onUpdateTag(editingTag.id, editingTag.name.trim(), editingTag.color);
+            setEditingTag(null);
+        }
+    };
+
+    const colors = [
+        '#EF4444', '#F97316', '#F59E0B', '#EAB308', '#84CC16', '#22C55E', '#10B981', '#14B8A6',
+        '#06B6D4', '#0EA5E9', '#3B82F6', '#6366F1', '#8B5CF6', '#A855F7', '#D946EF', '#EC4899'
+    ];
+
+    return (
+        <div className="space-y-8">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-bold mb-4">Create New Tag</h2>
+                <form onSubmit={handleAddTag} className="flex flex-col sm:flex-row items-end gap-4">
+                    <div className="flex-grow w-full">
+                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Tag Name</label>
+                        <input
+                            type="text"
+                            value={newTagName}
+                            onChange={(e) => setNewTagName(e.target.value)}
+                            placeholder="e.g., Breakout"
+                            className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div>
+                         <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Color</label>
+                        <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                            {colors.map(color => (
+                                <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => setNewTagColor(color)}
+                                    className={`w-6 h-6 rounded-full transition-transform hover:scale-125 ${newTagColor === color ? 'ring-2 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-700 ring-blue-500' : ''}`}
+                                    style={{ backgroundColor: color }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                    <button type="submit" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition">Add Tag</button>
+                </form>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-bold mb-4">Manage Existing Tags</h2>
+                <div className="space-y-3">
+                    {tags.map(tag => (
+                        <div key={tag.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            {editingTag?.id === tag.id ? (
+                                <div className="flex-grow flex items-center gap-4">
+                                    <input
+                                        type="text"
+                                        value={editingTag.name}
+                                        onChange={(e) => setEditingTag({ ...editingTag, name: e.target.value })}
+                                        className="bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1 px-2"
+                                    />
+                                    <div className="flex items-center gap-1">
+                                        {colors.slice(0, 8).map(color => (
+                                            <button
+                                                key={color} type="button" onClick={() => setEditingTag({ ...editingTag, color })}
+                                                className={`w-5 h-5 rounded-full ${editingTag.color === color ? 'ring-2 ring-blue-500' : ''}`}
+                                                style={{ backgroundColor: color }}
+                                            />
+                                        ))}
+                                    </div>
+                                    <button onClick={handleUpdateTag} className="text-sm text-green-500 font-semibold">Save</button>
+                                    <button onClick={() => setEditingTag(null)} className="text-sm text-gray-500">Cancel</button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center">
+                                    <span className="font-semibold px-3 py-1 rounded-full text-sm text-white" style={{ backgroundColor: tag.color }}>{tag.name}</span>
+                                    <span className="text-sm text-gray-400 ml-4">{tagUsage[tag.name] || 0} uses</span>
+                                </div>
+                            )}
+                            {editingTag?.id !== tag.id && (
+                                <div className="flex items-center space-x-3">
+                                    <button onClick={() => setEditingTag({ ...tag })} className="text-gray-400 hover:text-blue-500">Edit</button>
+                                    <button onClick={() => onDeleteTag(tag.id)} className="text-gray-400 hover:text-red-500"><TrashIcon className="w-4 h-4" /></button>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    {tags.length === 0 && <p className="text-center text-gray-500 py-4">No tags created yet.</p>}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const DashboardCard = ({ title, value, icon, valueColor, subValue }) => (
   <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center transition-colors duration-300">
     <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full mr-4">{icon}</div>
@@ -407,65 +575,12 @@ const EquityCurveChart = ({ transactions, startingEquity }) => {
     );
 };
 
-
-const AddTransactionForm = ({ onAddTransaction }) => {
-  const [type, setType] = useState('Buy');
-  const [amount, setAmount] = useState('');
-  const [error, setError] = useState('');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    let pnlValue = parseFloat(amount);
-    if (!amount || isNaN(pnlValue)) {
-      setError('Amount must be a number.');
-      return;
-    }
-    
-    let finalPayload = { type, pnl: pnlValue };
-    if (type === 'Withdrawal') {
-        finalPayload.pnl = -Math.abs(pnlValue);
-    } else if (type === 'Deposit') {
-        finalPayload.pnl = Math.abs(pnlValue);
-    }
-
-    setError('');
-    onAddTransaction(finalPayload);
-    setAmount('');
-  };
-
-  const isTrade = type === 'Buy' || type === 'Sell';
-
-  return (
-    <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md transition-colors duration-300`}>
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-        <div>
-          <label htmlFor="type" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Transaction Type</label>
-          <select id="type" value={type} onChange={(e) => setType(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
-            <option>Buy</option>
-            <option>Sell</option>
-            <option>Deposit</option>
-            <option>Withdrawal</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="amount" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{isTrade ? 'Profit / Loss ($)' : 'Amount ($)'}</label>
-          <input id="amount" type="number" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={isTrade ? "e.g. 150 or -75" : "e.g. 1000"} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-        </div>
-        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">
-          Save Transaction
-        </button>
-      </form>
-      {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-    </div>
-  );
-};
-
-const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
+const TradeDetailModal = ({ trade, user, allTags, onAddNewTag, onSave, onCancel }) => {
     const [date, setDate] = useState(new Date(trade.date.toDate()).toISOString().split('T')[0]);
     const [type, setType] = useState(trade.type);
     const [pnl, setPnl] = useState(trade.pnl);
     const [notes, setNotes] = useState(trade.notes || '');
-    const [tags, setTags] = useState(trade.tags ? trade.tags.join(', ') : '');
+    const [tags, setTags] = useState(trade.tags || []);
     const [rating, setRating] = useState(trade.rating || 0);
     const [imageFile, setImageFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -475,8 +590,26 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
     const [aiAnalysis, setAiAnalysis] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisError, setAnalysisError] = useState('');
+    const [newTagInput, setNewTagInput] = useState('');
 
     const isTrade = type === 'Buy' || type === 'Sell';
+
+    const handleToggleTag = (tagName) => {
+        setTags(prev => 
+            prev.includes(tagName) ? prev.filter(t => t !== tagName) : [...prev, tagName]
+        );
+    };
+
+    const handleAddNewTag = () => {
+        if (newTagInput.trim() && !allTags.find(t => t.name.toLowerCase() === newTagInput.trim().toLowerCase())) {
+            // A random color for on-the-fly tags
+            const colors = ['#EF4444', '#F97316', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            onAddNewTag(newTagInput.trim(), randomColor);
+            handleToggleTag(newTagInput.trim()); // Also select it immediately
+            setNewTagInput('');
+        }
+    };
 
     const handleRemoveImage = () => {
         setImageFile(null);
@@ -568,7 +701,6 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
             if (type === 'Withdrawal') pnlValue = -Math.abs(pnlValue);
             else if (type === 'Deposit') pnlValue = Math.abs(pnlValue);
 
-            const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
             const status = isTrade ? (pnlValue >= 0 ? 'Win' : 'Loss') : null;
             
             const updatedTradeData = {
@@ -578,7 +710,7 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
                 pnl: pnlValue,
                 status,
                 notes,
-                tags: tagsArray,
+                tags: tags,
                 rating,
                 imageUrl: finalImageUrl
             };
@@ -670,8 +802,31 @@ const TradeDetailModal = ({ trade, user, onSave, onCancel }) => {
                             {/* --- END GEMINI AI ANALYSIS SECTION --- */}
 
                             <div>
-                                <label htmlFor="tags" className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Tags (comma separated)</label>
-                                <input id="tags" type="text" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g. breakout, fomo, discipline" className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                                <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Tags</label>
+                                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg flex flex-wrap gap-2">
+                                    {allTags.map(tag => (
+                                        <button
+                                            key={tag.id}
+                                            type="button"
+                                            onClick={() => handleToggleTag(tag.name)}
+                                            className={`px-3 py-1 rounded-full text-sm font-semibold transition-all duration-200 ${tags.includes(tag.name) ? 'text-white shadow-md' : 'opacity-70 hover:opacity-100'}`}
+                                            style={{ backgroundColor: tags.includes(tag.name) ? tag.color : tag.color+'40', color: tags.includes(tag.name) ? '#fff': '#E2E8F0' }}
+                                        >
+                                            {tag.name}
+                                        </button>
+                                    ))}
+                                    {allTags.length === 0 && <p className="text-xs text-gray-400">No tags created. Go to the 'Tags' tab to add some.</p>}
+                                </div>
+                                <div className="flex items-center mt-2">
+                                    <input
+                                        type="text"
+                                        value={newTagInput}
+                                        onChange={(e) => setNewTagInput(e.target.value)}
+                                        placeholder="Or create a new tag..."
+                                        className="flex-grow bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-l-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <button onClick={handleAddNewTag} type="button" className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm font-semibold py-1 px-3 rounded-r-md">Add</button>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Execution Rating</label>
@@ -1360,6 +1515,7 @@ const ProfileModal = ({ user, profileData, onSave, onCancel }) => {
 function TradingJournal({ user, handleLogout }) {
   const [transactions, setTransactions] = useState([]);
   const [dailyJournals, setDailyJournals] = useState({});
+  const [tags, setTags] = useState([]);
   const [profileData, setProfileData] = useState({});
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('themeV12') || 'dark' : 'dark');
@@ -1398,6 +1554,7 @@ function TradingJournal({ user, handleLogout }) {
     const journalsCollectionPath = `users/${user.uid}/dailyJournals`;
     const settingsDocPath = `users/${user.uid}/profile/settings`;
     const profileDocPath = `users/${user.uid}/profile/info`;
+    const tagsCollectionPath = `users/${user.uid}/tags`;
 
     const q = query(collection(db, tradesCollectionPath), orderBy("date", "desc"));
     const unsubscribeTrades = onSnapshot(q, (querySnapshot) => {
@@ -1421,6 +1578,17 @@ function TradingJournal({ user, handleLogout }) {
         setDailyJournals(journalsData);
     }, (error) => {
         console.error("Error fetching daily journals:", error);
+    });
+
+    const tagsQuery = query(collection(db, tagsCollectionPath), orderBy("name"));
+    const unsubTags = onSnapshot(tagsQuery, (querySnapshot) => {
+        const tagsData = [];
+        querySnapshot.forEach((doc) => {
+            tagsData.push({ ...doc.data(), id: doc.id });
+        });
+        setTags(tagsData);
+    }, (error) => {
+        console.error("Error fetching tags:", error);
     });
 
     const unsubSettings = onSnapshot(doc(db, settingsDocPath), (doc) => {
@@ -1455,6 +1623,7 @@ function TradingJournal({ user, handleLogout }) {
         unsubJournals();
         unsubSettings();
         unsubProfile();
+        unsubTags();
     };
   }, [user]);
 
@@ -1494,19 +1663,45 @@ function TradingJournal({ user, handleLogout }) {
       }
   };
 
-  const saveProfile = async (newProfileData) => {
-    if (!user) {
-        console.error("Cannot save profile, no user logged in.");
-        return;
-    }
-    const profileDocPath = `users/${user.uid}/profile/info`;
-    try {
-        await setDoc(doc(db, profileDocPath), newProfileData, { merge: true });
-        setProfileData(newProfileData);
-        setIsProfileModalOpen(false);
-    } catch (error) {
-        console.error("Error saving profile to Firestore:", error);
-    }
+  const addTag = async (tagName, tagColor) => {
+      if (!user || !tagName) return;
+      const tagsCollectionPath = `users/${user.uid}/tags`;
+      // Check for duplicates (case-insensitive)
+      const existingTag = tags.find(t => t.name.toLowerCase() === tagName.toLowerCase());
+      if (existingTag) {
+          console.error("Tag already exists.");
+          // Maybe return an error message to the UI
+          return; 
+      }
+      try {
+          await addDoc(collection(db, tagsCollectionPath), {
+              name: tagName,
+              color: tagColor,
+          });
+      } catch (error) {
+          console.error("Error adding tag: ", error);
+      }
+  };
+
+  const updateTag = async (tagId, newName, newColor) => {
+      if (!user) return;
+      const tagDocRef = doc(db, `users/${user.uid}/tags`, tagId);
+      try {
+          await updateDoc(tagDocRef, { name: newName, color: newColor });
+      } catch (error) {
+          console.error("Error updating tag: ", error);
+      }
+  };
+
+  const deleteTag = async (tagId) => {
+      if (!user) return;
+      // This is a simple delete. A more robust version would check if the tag is in use and maybe offer to remove it from all trades. For now, we'll just delete the definition.
+      const tagDocRef = doc(db, `users/${user.uid}/tags`, tagId);
+      try {
+          await deleteDoc(tagDocRef);
+      } catch (error) {
+          console.error("Error deleting tag: ", error);
+      }
   };
 
   const addTransaction = async (tx) => {
@@ -2190,12 +2385,29 @@ Keep each section concise and to the point. Do not add any other sections or int
               <PerformanceByDayChart dayPerformance={advancedStats.dayPerformance} />
               <AdvancedAnalyticsDashboard stats={advancedStats} />
               <TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} />
+              <TagManagementPage
+                tags={tags}
+                transactions={transactions}
+                onAddTag={addTag}
+                onUpdateTag={updateTag}
+                onDeleteTag={deleteTag}
+              />
             </div>
+          )}
+
+          {activeTab === 'Tags' && (
+            <TagManagementPage
+                tags={tags}
+                transactions={transactions}
+                onAddTag={addTag}
+                onUpdateTag={updateTag}
+                onDeleteTag={deleteTag}
+            />
           )}
 
         </main>
         
-        {viewingTrade && <TradeDetailModal trade={viewingTrade} user={user} onSave={saveTransactionDetails} onCancel={() => setViewingTrade(null)} />}
+        {viewingTrade && <TradeDetailModal trade={viewingTrade} user={user} allTags={tags} onAddNewTag={addTag} onSave={saveTransactionDetails} onCancel={() => setViewingTrade(null)} />}
         {selectedCalendarDate && <DailyDetailModal date={selectedCalendarDate} transactions={transactions} dailyJournals={dailyJournals} onSaveJournal={saveDailyJournal} onClose={() => setSelectedCalendarDate(null)} onTradeClick={handleOpenTradeFromCalendar} />}
         {isSettingsModalOpen && <SettingsModal settings={settings} onSave={saveSettings} onCancel={() => setIsSettingsModalOpen(false)} />}
         {isProfileModalOpen && <ProfileModal user={user} profileData={profileData} onSave={saveProfile} onCancel={() => setIsProfileModalOpen(false)} />}
@@ -2411,6 +2623,9 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
+
+
 
 
 
