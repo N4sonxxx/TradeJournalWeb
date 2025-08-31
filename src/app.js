@@ -21,7 +21,9 @@ import {
     deleteDoc, 
     setDoc, 
     Timestamp, 
-    orderBy 
+    orderBy,
+    runTransaction,
+    increment
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
@@ -134,9 +136,287 @@ const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" widt
 const MagicWandIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 4V2"/><path d="M15 10V8"/><path d="M12.5 6.5L14 5"/><path d="M12.5 11.5L14 13"/><path d="M5 4V2"/><path d="M5 10V8"/><path d="M7.5 6.5L6 5"/><path d="M7.5 11.5L6 13"/><path d="M10 22v-8"/><path d="m15 22-3-3-3 3"/><path d="M20 15h-2"/><path d="M4 15H2"/><path d="m17.5 12.5-1.5 1.5"/><path d="m6.5 12.5-1.5 1.5"/></svg>;
 const MessageSquareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>;
 const SendIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>;
+const ThumbsUpIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M7 10v12"></path><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"></path></svg>;
+const ThumbsDownIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 14V2"></path><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"></path></svg>;
 
 
 // --- Components ---
+
+const Comment = ({ comment, profileData }) => (
+    <div className="flex items-start space-x-3 py-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center font-bold text-sm text-gray-500 dark:text-gray-300">
+            {comment.authorDisplayName ? comment.authorDisplayName.charAt(0).toUpperCase() : '?'}
+        </div>
+        <div className="flex-1">
+            <div className="flex items-center space-x-2">
+                <p className="font-semibold text-sm">{comment.authorDisplayName || 'Anonymous'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {comment.createdAt ? new Date(comment.createdAt.toDate()).toLocaleString() : 'Just now'}
+                </p>
+            </div>
+            <p className="text-sm mt-1">{comment.text}</p>
+        </div>
+    </div>
+);
+
+const PostItem = ({ post, user, profileData }) => {
+    const [showComments, setShowComments] = useState(false);
+    const [comments, setComments] = useState([]);
+    const [newComment, setNewComment] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // NOTE: This collection MUST be configured in your Firestore Security Rules
+    // to allow public read/write access for all authenticated users.
+    // Example Rule: 
+    // rules_version = '2';
+    // service cloud.firestore {
+    //   match /databases/{database}/documents {
+    //     // ... other rules for user data
+    //     match /community_feed/{postId=**} {
+    //       allow read, write: if request.auth != null;
+    //     }
+    //   }
+    // }
+    const postRef = doc(db, 'community_feed', post.id);
+
+    const hasLiked = post.likes?.includes(user.uid);
+    const hasDisliked = post.dislikes?.includes(user.uid);
+
+    useEffect(() => {
+        if (!showComments) return;
+
+        const commentsQuery = query(collection(postRef, 'comments'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
+            const commentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setComments(commentsData);
+        });
+        return () => unsubscribe();
+    }, [showComments, post.id]);
+
+    const handleVote = async (voteType) => {
+        try {
+            await runTransaction(db, async (transaction) => {
+                const postDoc = await transaction.get(postRef);
+                if (!postDoc.exists()) throw "Document does not exist!";
+                
+                let likes = postDoc.data().likes || [];
+                let dislikes = postDoc.data().dislikes || [];
+
+                const wasLiked = likes.includes(user.uid);
+                const wasDisliked = dislikes.includes(user.uid);
+
+                if (voteType === 'like') {
+                    if (wasLiked) { // un-like
+                        likes = likes.filter(uid => uid !== user.uid);
+                    } else { // like
+                        likes.push(user.uid);
+                        if (wasDisliked) { // remove dislike if it exists
+                           dislikes = dislikes.filter(uid => uid !== user.uid);
+                        }
+                    }
+                } else if (voteType === 'dislike') {
+                     if (wasDisliked) { // un-dislike
+                        dislikes = dislikes.filter(uid => uid !== user.uid);
+                    } else { // dislike
+                        dislikes.push(user.uid);
+                        if (wasLiked) { // remove like if it exists
+                           likes = likes.filter(uid => uid !== user.uid);
+                        }
+                    }
+                }
+                
+                transaction.update(postRef, { likes, dislikes });
+            });
+        } catch (e) {
+            console.error("Vote transaction failed: ", e);
+        }
+    };
+
+    const handleAddComment = async (e) => {
+        e.preventDefault();
+        if (!newComment.trim() || isSubmitting) return;
+
+        setIsSubmitting(true);
+        const commentsColRef = collection(postRef, 'comments');
+        try {
+            await addDoc(commentsColRef, {
+                text: newComment,
+                authorId: user.uid,
+                authorDisplayName: profileData.displayName || user.email,
+                createdAt: Timestamp.now(),
+            });
+
+            await updateDoc(postRef, { commentCount: increment(1) });
+            setNewComment('');
+        } catch (error) {
+            console.error("Error adding comment: ", error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <div className="flex items-start space-x-4">
+                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center font-bold text-lg text-gray-500 dark:text-gray-300">
+                    {post.authorDisplayName ? post.authorDisplayName.charAt(0).toUpperCase() : '?'}
+                </div>
+                <div className="flex-1">
+                    <h3 className="text-xl font-bold">{post.title}</h3>
+                     <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <span>Posted by {post.authorDisplayName || 'Anonymous'}</span>
+                        <span>&bull;</span>
+                        <span>{new Date(post.createdAt.toDate()).toLocaleString()}</span>
+                    </div>
+                </div>
+            </div>
+            <p className="mt-4 text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{post.content}</p>
+            <div className="mt-4 flex items-center space-x-6 text-gray-500 dark:text-gray-400">
+                <div className="flex items-center space-x-2">
+                    <button onClick={() => handleVote('like')} className={`p-1 rounded-full transition ${hasLiked ? 'text-blue-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+                        <ThumbsUpIcon className="w-5 h-5" filled={hasLiked} />
+                    </button>
+                    <span className="text-sm font-semibold">{post.likes?.length || 0}</span>
+                </div>
+                 <div className="flex items-center space-x-2">
+                    <button onClick={() => handleVote('dislike')} className={`p-1 rounded-full transition ${hasDisliked ? 'text-red-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+                        <ThumbsDownIcon className="w-5 h-5" filled={hasDisliked} />
+                    </button>
+                    <span className="text-sm font-semibold">{post.dislikes?.length || 0}</span>
+                </div>
+                <button onClick={() => setShowComments(!showComments)} className="flex items-center space-x-2 hover:text-blue-500 dark:hover:text-blue-400 transition">
+                    <MessageSquareIcon className="w-5 h-5" />
+                    <span className="text-sm font-semibold">{post.commentCount || 0} Comments</span>
+                </button>
+            </div>
+            {showComments && (
+                <div className="mt-4">
+                    <form onSubmit={handleAddComment} className="flex items-center space-x-2">
+                        <input
+                            type="text"
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            placeholder="Add a comment..."
+                            className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-full py-2 px-4 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            disabled={isSubmitting}
+                        />
+                        <button type="submit" className="text-blue-600 hover:text-blue-500 disabled:opacity-50" disabled={isSubmitting || !newComment}>
+                            <SendIcon className="w-6 h-6" />
+                        </button>
+                    </form>
+                    <div className="mt-4 space-y-2">
+                        {comments.length > 0 
+                            ? comments.map(c => <Comment key={c.id} comment={c} profileData={profileData} />) 
+                            : <p className="text-sm text-center text-gray-500 dark:text-gray-400 py-4">No comments yet. Be the first!</p>}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const CommunityPage = ({ user, profileData }) => {
+    const [posts, setPosts] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [newPostTitle, setNewPostTitle] = useState('');
+    const [newPostContent, setNewPostContent] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        // This query requires a public 'community_feed' collection in Firestore, see rule notes in PostItem.
+        const postsQuery = query(collection(db, 'community_feed'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
+            const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setPosts(postsData);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching posts:", error);
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const handleCreatePost = async (e) => {
+        e.preventDefault();
+        if (!newPostTitle.trim() || !newPostContent.trim() || isSubmitting) return;
+
+        setIsSubmitting(true);
+        try {
+            // This write requires public access to the 'community_feed' collection.
+            await addDoc(collection(db, 'community_feed'), {
+                title: newPostTitle,
+                content: newPostContent,
+                authorId: user.uid,
+                authorDisplayName: profileData.displayName || user.email,
+                createdAt: Timestamp.now(),
+                likes: [],
+                dislikes: [],
+                commentCount: 0
+            });
+            setNewPostTitle('');
+            setNewPostContent('');
+        } catch (error) {
+            console.error("Error creating post:", error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="space-y-8">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                <h2 className="text-2xl font-bold mb-4">Create a New Post</h2>
+                <form onSubmit={handleCreatePost} className="space-y-4">
+                    <div>
+                        <label htmlFor="post-title" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
+                        <input 
+                            id="post-title"
+                            type="text"
+                            value={newPostTitle}
+                            onChange={(e) => setNewPostTitle(e.target.value)}
+                            placeholder="What's on your mind?"
+                            className="mt-1 w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="post-content" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
+                        <textarea
+                            id="post-content"
+                            rows="5"
+                            value={newPostContent}
+                            onChange={(e) => setNewPostContent(e.target.value)}
+                            placeholder="Share your thoughts, strategies, or questions with the community..."
+                            className="mt-1 w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        />
+                    </div>
+                    <div className="text-right">
+                         <button 
+                            type="submit" 
+                            disabled={isSubmitting}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition disabled:opacity-50"
+                        >
+                            {isSubmitting ? 'Posting...' : 'Post'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <div className="space-y-6">
+                <h2 className="text-2xl font-bold">Community Feed</h2>
+                {isLoading ? (
+                    <p className="text-center text-gray-500">Loading posts...</p>
+                ) : posts.length > 0 ? (
+                    posts.map(post => <PostItem key={post.id} post={post} user={user} profileData={profileData} />)
+                ) : (
+                    <p className="text-center text-gray-500 py-8">No posts yet. Be the first to start a conversation!</p>
+                )}
+            </div>
+        </div>
+    );
+};
 
 const AddTransactionForm = ({ onAddTransaction }) => {
     const [type, setType] = useState('Buy');
@@ -2254,6 +2534,7 @@ Keep each section concise and to the point. Do not add any other sections or int
           <TabButton tabName="Dashboard" />
           <TabButton tabName="Journal" />
           <TabButton tabName="Analytics" />
+          <TabButton tabName="Community" />
         </nav>
 
         <main>
@@ -2409,6 +2690,10 @@ Keep each section concise and to the point. Do not add any other sections or int
                 onDeleteTag={deleteTag}
               />
             </div>
+          )}
+          
+          {activeTab === 'Community' && (
+            <CommunityPage user={user} profileData={profileData} />
           )}
 
           {activeTab === 'Tags' && (
@@ -2639,6 +2924,9 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
+
+
 
 
 
