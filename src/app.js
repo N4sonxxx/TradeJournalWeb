@@ -173,6 +173,11 @@ const PostItem = ({ post, user, profileData }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
     const [editingComment, setEditingComment] = useState(null);
     
+    // --- State for editing post images ---
+    const [editedImageFile, setEditedImageFile] = useState(null);
+    const [editedImagePreview, setEditedImagePreview] = useState(post.imageUrl || '');
+    const editFileInputRef = useRef(null);
+    
     // NOTE: This collection MUST be configured in your Firestore Security Rules
     // to allow public read/write access for all authenticated users.
     // Example Rule: 
@@ -210,6 +215,16 @@ const PostItem = ({ post, user, profileData }) => {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [menuRef]);
+
+    // --- Effect to reset edit state when edit mode is toggled ---
+    useEffect(() => {
+        if (isEditing) {
+            setEditedTitle(post.title);
+            setEditedContent(post.content);
+            setEditedImagePreview(post.imageUrl || '');
+            setEditedImageFile(null); // Reset file on new edit session
+        }
+    }, [isEditing, post]);
 
     const handleVote = async (voteType) => {
         try {
@@ -295,11 +310,41 @@ const PostItem = ({ post, user, profileData }) => {
         e.preventDefault();
         if (!editedTitle.trim() || !editedContent.trim()) return;
         try {
-            await updateDoc(postRef, { title: editedTitle, content: editedContent });
+            let finalImageUrl = post.imageUrl;
+
+            if (editedImageFile) { // New image selected
+                if (post.imageUrl) {
+                    try { await deleteObject(ref(storage, post.imageUrl)); } catch (e) { console.warn("Old image not found, continuing update"); }
+                }
+                const newImageRef = ref(storage, `community_feed/${post.id}/${Date.now()}_${editedImageFile.name}`);
+                await uploadBytes(newImageRef, editedImageFile);
+                finalImageUrl = await getDownloadURL(newImageRef);
+            } else if (!editedImagePreview && post.imageUrl) { // Image removed
+                try { await deleteObject(ref(storage, post.imageUrl)); } catch (e) { console.warn("Image to remove not found"); }
+                finalImageUrl = '';
+            }
+            
+            await updateDoc(postRef, { title: editedTitle, content: editedContent, imageUrl: finalImageUrl });
             setIsEditing(false);
             setIsMenuOpen(false);
         } catch (error) {
             console.error("Error updating post:", error);
+        }
+    };
+    
+    const handleEditImageSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setEditedImageFile(file);
+            setEditedImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleEditRemoveImage = () => {
+        setEditedImageFile(null);
+        setEditedImagePreview('');
+        if (editFileInputRef.current) {
+            editFileInputRef.current.value = "";
         }
     };
 
@@ -381,23 +426,39 @@ const PostItem = ({ post, user, profileData }) => {
                 )}
             </div>
             {isEditing ? (
-                <form onSubmit={handleUpdatePost} className="mt-4 space-y-2">
+                <form onSubmit={handleUpdatePost} className="mt-4 space-y-4">
                     <textarea 
                         value={editedContent}
                         onChange={(e) => setEditedContent(e.target.value)}
                         rows="5"
                         className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Post Image</label>
+                        {editedImagePreview && (
+                            <div className="mt-2 relative">
+                                <img src={editedImagePreview} alt="Post image" className="max-h-48 rounded-md w-auto" />
+                                <button type="button" onClick={handleEditRemoveImage} className="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-75"><CloseIcon className="w-4 h-4" /></button>
+                            </div>
+                        )}
+                        <div className="mt-2">
+                            <button type="button" onClick={() => editFileInputRef.current.click()} className="flex items-center space-x-2 text-sm font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+                                <ImageIcon className="w-5 h-5" />
+                                <span>{editedImagePreview ? 'Change Image' : 'Add Image'}</span>
+                            </button>
+                            <input type="file" ref={editFileInputRef} onChange={handleEditImageSelect} className="hidden" accept="image/*" />
+                        </div>
+                    </div>
                     <div className="flex justify-end space-x-2">
                          <button onClick={() => setIsEditing(false)} type="button" className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm font-semibold py-1 px-3 rounded-md">Cancel</button>
-                         <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-1 px-3 rounded-md">Save</button>
+                         <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-1 px-3 rounded-md">Save Changes</button>
                     </div>
                 </form>
             ) : (
                 <p className="mt-4 text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{post.content}</p>
             )}
 
-            {post.imageUrl && (
+            {post.imageUrl && !isEditing && (
                 <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
                     <img src={post.imageUrl} alt="User upload" className="w-full h-auto max-h-[60vh] object-contain bg-gray-100 dark:bg-gray-900" />
                 </div>
@@ -3177,6 +3238,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
 
 
 
