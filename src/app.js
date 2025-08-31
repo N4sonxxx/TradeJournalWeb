@@ -138,32 +138,40 @@ const MessageSquareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/
 const SendIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>;
 const ThumbsUpIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M7 10v12"></path><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"></path></svg>;
 const ThumbsDownIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 14V2"></path><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"></path></svg>;
+const MoreVerticalIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>;
+const EditIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
 
 
 // --- Components ---
 
-const Comment = ({ comment, profileData }) => (
-    <div className="flex items-start space-x-3 py-3 border-t border-gray-200 dark:border-gray-700">
-        <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center font-bold text-sm text-gray-500 dark:text-gray-300">
-            {comment.authorDisplayName ? comment.authorDisplayName.charAt(0).toUpperCase() : '?'}
-        </div>
-        <div className="flex-1">
-            <div className="flex items-center space-x-2">
-                <p className="font-semibold text-sm">{comment.authorDisplayName || 'Anonymous'}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {comment.createdAt ? new Date(comment.createdAt.toDate()).toLocaleString() : 'Just now'}
-                </p>
+const ConfirmationModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = 'Delete' }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] p-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm">
+                <h3 className="text-lg font-bold">{title}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{message}</p>
+                <div className="mt-6 flex justify-end space-x-3">
+                    <button onClick={onCancel} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm font-semibold">Cancel</button>
+                    <button onClick={onConfirm} className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">{confirmText}</button>
+                </div>
             </div>
-            <p className="text-sm mt-1">{comment.text}</p>
         </div>
-    </div>
-);
+    );
+};
 
 const PostItem = ({ post, user, profileData }) => {
     const [showComments, setShowComments] = useState(false);
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedTitle, setEditedTitle] = useState(post.title);
+    const [editedContent, setEditedContent] = useState(post.content);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+    const [editingComment, setEditingComment] = useState(null);
     
     // NOTE: This collection MUST be configured in your Firestore Security Rules
     // to allow public read/write access for all authenticated users.
@@ -192,6 +200,16 @@ const PostItem = ({ post, user, profileData }) => {
         });
         return () => unsubscribe();
     }, [showComments, post.id]);
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setIsMenuOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [menuRef]);
 
     const handleVote = async (voteType) => {
         try {
@@ -255,22 +273,136 @@ const PostItem = ({ post, user, profileData }) => {
         }
     };
 
+    const handleDeletePost = async () => {
+        try {
+            // If the post has an image, delete it from Storage first
+            if (post.imageUrl) {
+                const imageRef = ref(storage, post.imageUrl);
+                await deleteObject(imageRef);
+            }
+            // Then delete the post document from Firestore
+            await deleteDoc(doc(db, 'community_feed', post.id));
+        } catch (error) {
+            // It's okay if the image doesn't exist, so we only log other errors
+            if (error.code !== 'storage/object-not-found') {
+                 console.error("Error deleting post and/or image:", error);
+            }
+        }
+        setShowDeleteConfirm(null);
+    };
+
+    const handleUpdatePost = async (e) => {
+        e.preventDefault();
+        if (!editedTitle.trim() || !editedContent.trim()) return;
+        try {
+            await updateDoc(postRef, { title: editedTitle, content: editedContent });
+            setIsEditing(false);
+            setIsMenuOpen(false);
+        } catch (error) {
+            console.error("Error updating post:", error);
+        }
+    };
+
+    const handleDeleteComment = async (commentId) => {
+        try {
+            await deleteDoc(doc(db, 'community_feed', post.id, 'comments', commentId));
+            await runTransaction(db, async (transaction) => {
+                const postDoc = await transaction.get(postRef);
+                if (!postDoc.exists()) throw "Document does not exist!";
+                const newCount = (postDoc.data().commentCount || 0) - 1;
+                transaction.update(postRef, { commentCount: newCount < 0 ? 0 : newCount });
+            });
+        } catch (error) {
+            console.error("Error deleting comment:", error);
+        }
+        setShowDeleteConfirm(null);
+    };
+
+    const handleUpdateComment = async (e) => {
+        e.preventDefault();
+        if (!editingComment || !editingComment.text.trim()) return;
+        const commentRef = doc(db, 'community_feed', post.id, 'comments', editingComment.id);
+        try {
+            await updateDoc(commentRef, { text: editingComment.text });
+            setEditingComment(null);
+        } catch (error) {
+            console.error("Error updating comment:", error);
+        }
+    };
+
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md relative">
+             <ConfirmationModal
+                isOpen={!!showDeleteConfirm}
+                title={showDeleteConfirm?.type === 'post' ? 'Delete Post' : 'Delete Comment'}
+                message={`Are you sure you want to permanently delete this ${showDeleteConfirm?.type}? This action cannot be undone.`}
+                onConfirm={() => showDeleteConfirm.type === 'post' ? handleDeletePost() : handleDeleteComment(showDeleteConfirm.id)}
+                onCancel={() => setShowDeleteConfirm(null)}
+            />
             <div className="flex items-start space-x-4">
                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center font-bold text-lg text-gray-500 dark:text-gray-300">
                     {post.authorDisplayName ? post.authorDisplayName.charAt(0).toUpperCase() : '?'}
                 </div>
                 <div className="flex-1">
-                    <h3 className="text-xl font-bold">{post.title}</h3>
+                    {isEditing ? (
+                         <form onSubmit={handleUpdatePost}>
+                            <input 
+                                type="text"
+                                value={editedTitle}
+                                onChange={(e) => setEditedTitle(e.target.value)}
+                                className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-1 px-2 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                         </form>
+                    ) : (
+                        <h3 className="text-xl font-bold">{post.title}</h3>
+                    )}
                      <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
                         <span>Posted by {post.authorDisplayName || 'Anonymous'}</span>
                         <span>&bull;</span>
                         <span>{new Date(post.createdAt.toDate()).toLocaleString()}</span>
                     </div>
                 </div>
+                {user.uid === post.authorId && !isEditing && (
+                    <div className="relative" ref={menuRef}>
+                        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                            <MoreVerticalIcon className="w-5 h-5" />
+                        </button>
+                        {isMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10">
+                                <button onClick={() => { setIsEditing(true); setIsMenuOpen(false); }} className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <EditIcon className="w-4 h-4 mr-2" /> Edit Post
+                                </button>
+                                <button onClick={() => setShowDeleteConfirm({ type: 'post' })} className="w-full text-left flex items-center px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <TrashIcon className="w-4 h-4 mr-2" /> Delete Post
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
-            <p className="mt-4 text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{post.content}</p>
+            {isEditing ? (
+                <form onSubmit={handleUpdatePost} className="mt-4 space-y-2">
+                    <textarea 
+                        value={editedContent}
+                        onChange={(e) => setEditedContent(e.target.value)}
+                        rows="5"
+                        className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <div className="flex justify-end space-x-2">
+                         <button onClick={() => setIsEditing(false)} type="button" className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm font-semibold py-1 px-3 rounded-md">Cancel</button>
+                         <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-1 px-3 rounded-md">Save</button>
+                    </div>
+                </form>
+            ) : (
+                <p className="mt-4 text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{post.content}</p>
+            )}
+
+            {post.imageUrl && (
+                <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                    <img src={post.imageUrl} alt="User upload" className="w-full h-auto max-h-[60vh] object-contain bg-gray-100 dark:bg-gray-900" />
+                </div>
+            )}
+
             <div className="mt-4 flex items-center space-x-6 text-gray-500 dark:text-gray-400">
                 <div className="flex items-center space-x-2">
                     <button onClick={() => handleVote('like')} className={`p-1 rounded-full transition ${hasLiked ? 'text-blue-500' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
@@ -304,9 +436,50 @@ const PostItem = ({ post, user, profileData }) => {
                             <SendIcon className="w-6 h-6" />
                         </button>
                     </form>
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-4">
                         {comments.length > 0 
-                            ? comments.map(c => <Comment key={c.id} comment={c} profileData={profileData} />) 
+                            ? comments.map(c => (
+                                <div key={c.id} className="flex items-start space-x-3 py-3 border-t border-gray-200 dark:border-gray-700">
+                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex-shrink-0 items-center justify-center font-bold text-sm text-gray-500 dark:text-gray-300">
+                                        {c.authorDisplayName ? c.authorDisplayName.charAt(0).toUpperCase() : '?'}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center space-x-2">
+                                            <p className="font-semibold text-sm">{c.authorDisplayName || 'Anonymous'}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                {c.createdAt ? new Date(c.createdAt.toDate()).toLocaleString() : 'Just now'}
+                                            </p>
+                                        </div>
+                                        {editingComment?.id === c.id ? (
+                                            <form onSubmit={handleUpdateComment} className="mt-2 flex items-center space-x-2">
+                                                <input
+                                                    type="text"
+                                                    value={editingComment.text}
+                                                    onChange={(e) => setEditingComment({ ...editingComment, text: e.target.value })}
+                                                    className="w-full text-sm bg-gray-100 dark:bg-gray-700 border-transparent rounded-md py-1 px-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                                    autoFocus
+                                                />
+                                                <div className="flex space-x-1">
+                                                    <button type="submit" className="text-green-500 hover:text-green-400 text-xs font-semibold">Save</button>
+                                                    <button type="button" onClick={() => setEditingComment(null)} className="text-gray-500 hover:text-gray-400 text-xs font-semibold">Cancel</button>
+                                                </div>
+                                            </form>
+                                        ) : (
+                                            <p className="text-sm mt-1">{c.text}</p>
+                                        )}
+                                    </div>
+                                    {user.uid === c.authorId && !editingComment && (
+                                        <div className="flex items-center space-x-1">
+                                            <button onClick={() => setEditingComment({ id: c.id, text: c.text })} className="p-1 rounded-full text-gray-400 hover:text-blue-500">
+                                                <EditIcon className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => setShowDeleteConfirm({ type: 'comment', id: c.id })} className="p-1 rounded-full text-gray-400 hover:text-red-500">
+                                                <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )) 
                             : <p className="text-sm text-center text-gray-500 dark:text-gray-400 py-4">No comments yet. Be the first!</p>}
                     </div>
                 </div>
@@ -320,7 +493,10 @@ const CommunityPage = ({ user, profileData }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [newPostTitle, setNewPostTitle] = useState('');
     const [newPostContent, setNewPostContent] = useState('');
+    const [newPostImage, setNewPostImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         // This query requires a public 'community_feed' collection in Firestore, see rule notes in PostItem.
@@ -337,14 +513,33 @@ const CommunityPage = ({ user, profileData }) => {
         return () => unsubscribe();
     }, []);
 
+    const handleImageSelect = (e) => {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            setNewPostImage(file);
+            setImagePreview(URL.createObjectURL(file));
+        } else {
+            setNewPostImage(null);
+            setImagePreview('');
+        }
+    };
+
+    const removeImage = () => {
+        setNewPostImage(null);
+        setImagePreview('');
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
     const handleCreatePost = async (e) => {
         e.preventDefault();
         if (!newPostTitle.trim() || !newPostContent.trim() || isSubmitting) return;
 
         setIsSubmitting(true);
         try {
-            // This write requires public access to the 'community_feed' collection.
-            await addDoc(collection(db, 'community_feed'), {
+            // 1. Create the post document to get an ID
+            const newPostRef = await addDoc(collection(db, 'community_feed'), {
                 title: newPostTitle,
                 content: newPostContent,
                 authorId: user.uid,
@@ -352,10 +547,34 @@ const CommunityPage = ({ user, profileData }) => {
                 createdAt: Timestamp.now(),
                 likes: [],
                 dislikes: [],
-                commentCount: 0
+                commentCount: 0,
+                imageUrl: '' // Initialize imageUrl as empty
             });
+
+            // 2. If there's an image, upload it
+            let downloadURL = '';
+            if (newPostImage) {
+                // NOTE: This requires Firebase Storage rules to be configured. Example:
+                // service firebase.storage {
+                //   match /b/{bucket}/o {
+                //     match /community_feed/{postId}/{fileName} {
+                //       allow read;
+                //       allow write: if request.auth != null && request.resource.size < 5 * 1024 * 1024
+                //                  && request.resource.contentType.matches('image/.*');
+                //     }
+                //   }
+                // }
+                const storageRef = ref(storage, `community_feed/${newPostRef.id}/${newPostImage.name}`);
+                await uploadBytes(storageRef, newPostImage);
+                downloadURL = await getDownloadURL(storageRef);
+                
+                // 3. Update the post document with the image URL
+                await updateDoc(newPostRef, { imageUrl: downloadURL });
+            }
+
             setNewPostTitle('');
             setNewPostContent('');
+            removeImage();
         } catch (error) {
             console.error("Error creating post:", error);
         } finally {
@@ -392,6 +611,40 @@ const CommunityPage = ({ user, profileData }) => {
                             required
                         />
                     </div>
+                    
+                    {/* Image Upload Section */}
+                    <div>
+                        {imagePreview && (
+                            <div className="mt-2 relative">
+                                <img src={imagePreview} alt="Image preview" className="max-h-48 rounded-md w-auto" />
+                                <button
+                                    type="button"
+                                    onClick={removeImage}
+                                    className="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-75"
+                                >
+                                    <CloseIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+                        <div className="mt-2 flex items-center">
+                             <button
+                                type="button"
+                                onClick={() => fileInputRef.current.click()}
+                                className="flex items-center space-x-2 text-sm font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                                <ImageIcon className="w-5 h-5" />
+                                <span>{imagePreview ? 'Change Image' : 'Add Image'}</span>
+                            </button>
+                             <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleImageSelect}
+                                className="hidden"
+                                accept="image/*"
+                            />
+                        </div>
+                    </div>
+
                     <div className="text-right">
                          <button 
                             type="submit" 
@@ -2924,6 +3177,8 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
+
 
 
 
