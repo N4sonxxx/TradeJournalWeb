@@ -3012,23 +3012,20 @@ Keep each section concise and to the point. Do not add any other sections or int
 
         <main>
           {activeTab === 'Dashboard' && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                  <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Main content column */}
+              <div className="lg:col-span-2 space-y-8">
+                {/* Dashboard Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                       <DashboardCard title="Current Equity" value={formatCurrency(dashboardStats.currentEquity)} valueColor="text-blue-500" icon={<TargetIcon className="w-6 h-6 text-blue-500" />} />
-                      <DashboardCard title="Total P&L (Trades Only)" value={formatCurrency(dashboardStats.totalPnl)} valueColor={dashboardStats.totalPnl >= 0 ? 'text-green-500' : 'text-red-500'} icon={<DollarSignIcon className="w-6 h-6 text-green-500" />} />
+                      <DashboardCard title="Total P&L (Trades)" value={formatCurrency(dashboardStats.totalPnl)} valueColor={dashboardStats.totalPnl >= 0 ? 'text-green-500' : 'text-red-500'} icon={<DollarSignIcon className="w-6 h-6 text-green-500" />} />
                       <DashboardCard title="Win Rate" value={`${(dashboardStats.winRate * 100).toFixed(1)}%`} valueColor="text-indigo-500" icon={<PercentIcon className="w-6 h-6 text-indigo-500" />} subValue={`${dashboardStats.totalTrades} trades`} />
                       <DashboardCard title="Total Deposits" value={formatCurrency(dashboardStats.totalDeposits)} valueColor="text-yellow-500" icon={<PlusCircleIcon className="w-6 h-6 text-yellow-500" />} />
                       <DashboardCard title="Total Withdrawals" value={formatCurrency(dashboardStats.totalWithdrawals)} valueColor="text-orange-500" icon={<MinusCircleIcon className="w-6 h-6 text-orange-500" />} />
-                  </div>
-                   <div className="lg:col-span-1 grid grid-rows-3 gap-8">
-                       <DailyBriefingAndBiasSetter todayBias={todayBias} onSaveBias={(biasData) => saveDailyJournal(todayString, biasData)} />
-                       <ConsistencyTracker dailyStats={dailyStats} settings={settings} onOpenSettings={() => setIsSettingsModalOpen(true)} />
-                       <WeeklyReviewGenerator onGenerate={handleGenerateWeeklyReview} review={weeklyReview} isLoading={isGeneratingReview} error={reviewError} stats={weeklyStats} />
-                   </div>
-              </div>
-              
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                </div>
+                
+                {/* Add a Trade Button */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
                   <button onClick={() => setActiveTab('Journal')} className="w-full p-4 flex justify-between items-center text-left text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                       <div className="flex items-center space-x-3">
                           <PlusCircleIcon className="w-6 h-6" />
@@ -3036,15 +3033,18 @@ Keep each section concise and to the point. Do not add any other sections or int
                       </div>
                       <ChevronRightIcon className="w-6 h-6" />
                   </button>
+                </div>
+                
+                {/* Trading Calendar */}
+                <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} consistencyByDay={consistencyByDay} />
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <div className="xl:col-span-2">
-                    <TradingCalendar transactions={transactions} currentDate={currentDate} setCurrentDate={setCurrentDate} onDayClick={handleDayClick} dailyJournals={dailyJournals} consistencyByDay={consistencyByDay} />
-                </div>
-                <div className="hidden xl:block xl:col-span-1">
-                    <MonthlyStatsBreakdown monthlyStats={monthlyStats} />
-                </div>
+              {/* Sidebar column */}
+              <div className="lg:col-span-1 space-y-8">
+                  <MonthlyStatsBreakdown monthlyStats={monthlyStats} />
+                  <ConsistencyTracker dailyStats={dailyStats} settings={settings} onOpenSettings={() => setIsSettingsModalOpen(true)} />
+                  <DailyBriefingAndBiasSetter todayBias={todayBias} onSaveBias={(biasData) => saveDailyJournal(todayString, biasData)} />
+                  <WeeklyReviewGenerator onGenerate={handleGenerateWeeklyReview} review={weeklyReview} isLoading={isGeneratingReview} error={reviewError} stats={weeklyStats} />
               </div>
             </div>
           )}
@@ -3397,6 +3397,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
 
 
 
