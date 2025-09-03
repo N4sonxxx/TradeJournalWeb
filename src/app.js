@@ -998,44 +998,46 @@ const TagManagementPage = ({ tags, transactions, onAddTag, onUpdateTag, onDelete
 
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                 <h2 className="text-xl font-bold mb-4">Manage Existing Tags</h2>
-                <div className="space-y-3">
-                    {tags.map(tag => (
-                        <div key={tag.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                            {editingTag?.id === tag.id ? (
-                                <div className="flex-grow flex items-center gap-4">
-                                    <input
-                                        type="text"
-                                        value={editingTag.name}
-                                        onChange={(e) => setEditingTag({ ...editingTag, name: e.target.value })}
-                                        className="bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1 px-2"
-                                    />
-                                    <div className="flex items-center gap-1">
-                                        {colors.slice(0, 8).map(color => (
-                                            <button
-                                                key={color} type="button" onClick={() => setEditingTag({ ...editingTag, color })}
-                                                className={`w-5 h-5 rounded-full ${editingTag.color === color ? 'ring-2 ring-blue-500' : ''}`}
-                                                style={{ backgroundColor: color }}
-                                            />
-                                        ))}
+                <div className="max-h-96 overflow-y-auto pr-2">
+                    <div className="space-y-3">
+                        {tags.map(tag => (
+                            <div key={tag.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                {editingTag?.id === tag.id ? (
+                                    <div className="flex-grow flex items-center gap-4">
+                                        <input
+                                            type="text"
+                                            value={editingTag.name}
+                                            onChange={(e) => setEditingTag({ ...editingTag, name: e.target.value })}
+                                            className="bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1 px-2"
+                                        />
+                                        <div className="flex items-center gap-1">
+                                            {colors.slice(0, 8).map(color => (
+                                                <button
+                                                    key={color} type="button" onClick={() => setEditingTag({ ...editingTag, color })}
+                                                    className={`w-5 h-5 rounded-full ${editingTag.color === color ? 'ring-2 ring-blue-500' : ''}`}
+                                                    style={{ backgroundColor: color }}
+                                                />
+                                            ))}
+                                        </div>
+                                        <button onClick={handleUpdateTag} className="text-sm text-green-500 font-semibold">Save</button>
+                                        <button onClick={() => setEditingTag(null)} className="text-sm text-gray-500">Cancel</button>
                                     </div>
-                                    <button onClick={handleUpdateTag} className="text-sm text-green-500 font-semibold">Save</button>
-                                    <button onClick={() => setEditingTag(null)} className="text-sm text-gray-500">Cancel</button>
-                                </div>
-                            ) : (
-                                <div className="flex items-center">
-                                    <span className="font-semibold px-3 py-1 rounded-full text-sm text-white" style={{ backgroundColor: tag.color }}>{tag.name}</span>
-                                    <span className="text-sm text-gray-400 ml-4">{tagUsage[tag.name] || 0} uses</span>
-                                </div>
-                            )}
-                            {editingTag?.id !== tag.id && (
-                                <div className="flex items-center space-x-3">
-                                    <button onClick={() => setEditingTag({ ...tag })} className="text-gray-400 hover:text-blue-500">Edit</button>
-                                    <button onClick={() => onDeleteTag(tag.id)} className="text-gray-400 hover:text-red-500"><TrashIcon className="w-4 h-4" /></button>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                    {tags.length === 0 && <p className="text-center text-gray-500 py-4">No tags created yet.</p>}
+                                ) : (
+                                    <div className="flex items-center">
+                                        <span className="font-semibold px-3 py-1 rounded-full text-sm text-white" style={{ backgroundColor: tag.color }}>{tag.name}</span>
+                                        <span className="text-sm text-gray-400 ml-4">{tagUsage[tag.name] || 0} uses</span>
+                                    </div>
+                                )}
+                                {editingTag?.id !== tag.id && (
+                                    <div className="flex items-center space-x-3">
+                                        <button onClick={() => setEditingTag({ ...tag })} className="text-gray-400 hover:text-blue-500">Edit</button>
+                                        <button onClick={() => onDeleteTag(tag.id)} className="text-gray-400 hover:text-red-500"><TrashIcon className="w-4 h-4" /></button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                        {tags.length === 0 && <p className="text-center text-gray-500 py-4">No tags created yet.</p>}
+                    </div>
                 </div>
             </div>
         </div>
@@ -3393,6 +3395,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
 
 
 
