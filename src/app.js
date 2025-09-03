@@ -1907,8 +1907,8 @@ const ConsistencyTracker = ({ dailyStats, settings, onOpenSettings }) => {
         ? formatCurrency(dailyLossLimit.value)
         : `${dailyLossLimit.value}%`;
 
-    const profitProgress = profitTargetValue > 0 ? Math.min((pnl / profitTargetValue) * 100, 100) : 0;
-    const lossProgress = lossLimitValue < 0 ? Math.min((pnl / lossLimitValue) * 100, 100) : 0;
+    const profitProgress = profitTargetValue > 0 && pnl > 0 ? Math.min((pnl / profitTargetValue) * 100, 100) : 0;
+    const lossProgress = lossLimitValue < 0 && pnl < 0 ? Math.min((pnl / lossLimitValue) * 100, 100) : 0;
     
     const limitReached = profitTargetHit || lossLimitHit || maxTradesHit;
     let alertMessage = '';
@@ -2569,10 +2569,10 @@ function TradingJournal({ user, handleLogout }) {
   const paginatedTransactions = filteredAndSortedTransactions.slice((currentPage - 1) * TRADES_PER_PAGE, currentPage * TRADES_PER_PAGE);
 
   const monthlyStats = useMemo(() => {
-    const monthTrades = transactions.filter(t => { const d = t.date.toDate(); return d.getFullYear() === currentDate.getFullYear() && d.getMonth() === currentDate.getMonth(); });
+    const monthTrades = transactions.filter(t => { const d = t.date.toDate(); return d.getFullYear() === currentDate.getFullYear() && d.getMonth() === currentDate.getMonth() && (t.type === 'Buy' || t.type === 'Sell'); });
     const total = monthTrades.length;
     const wins = monthTrades.filter(t => t.status === 'Win').length;
-    const losses = total - wins;
+    const losses = monthTrades.filter(t => t.status === 'Loss').length;
     const winRate = total > 0 ? (wins / total) * 100 : 0;
     const totalProfit = monthTrades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
     const totalLoss = monthTrades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0);
@@ -3238,6 +3238,8 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
+
 
 
 
