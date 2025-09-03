@@ -1619,54 +1619,97 @@ const PerformanceByDayChart = ({ dayPerformance }) => {
     const Bar = ({ label, value, maxValue, color }) => {
         const heightPercentage = maxValue > 0 ? (Math.abs(value) / maxValue) * 100 : 0;
         return (
-            <div className="flex flex-col items-center"><div className="w-full h-32 flex items-end justify-center"><div className={`w-10 rounded-t-md transition-all duration-500 ${color}`} style={{ height: `${heightPercentage}%` }}></div></div><span className="text-xs mt-1">{label}</span></div>
+            <div className="flex flex-col items-center h-full">
+                <div className="w-full h-full flex items-end justify-center">
+                    <div className={`w-10 rounded-t-md transition-all duration-500 ${color}`} style={{ height: `${heightPercentage}%` }}></div>
+                </div>
+                <span className="text-xs mt-1 flex-shrink-0">{label}</span>
+            </div>
         );
     };
 
     const maxDayPnl = Math.max(0.01, ...Object.values(dayPerformance).map(d => Math.abs(d.pnl)));
 
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h3 className="font-bold text-lg mb-4 text-center">Performance by Day</h3>
-            <div className="grid grid-cols-7 gap-2">
-                {Object.entries(dayPerformance).map(([day, data]) => (<Bar key={day} label={day.substring(0,3)} value={data.pnl} maxValue={maxDayPnl} color={data.pnl >= 0 ? 'bg-green-500' : 'bg-red-500'}/>))}
-            </div>
+        <div className="grid grid-cols-7 gap-2 h-full">
+            {Object.entries(dayPerformance).map(([day, data]) => (<Bar key={day} label={day.substring(0,3)} value={data.pnl} maxValue={maxDayPnl} color={data.pnl >= 0 ? 'bg-green-500' : 'bg-red-500'}/>))}
         </div>
     );
 };
 
 
 const AdvancedAnalyticsDashboard = ({ stats }) => {
-    const { tagPerformance, streaks, avgWinLossRatio, ratingPerformance, drawdown, expectancy } = stats;
+    const { tagPerformance, streaks, avgWinLossRatio, ratingPerformance, drawdown, winRate, totalTrades } = stats;
+
+    const winRatePercent = winRate * 100;
+    let suggestedRR = 'N/A';
+    let suggestionText = 'Record at least 10 trades to receive a suggestion.';
+
+    if (totalTrades >= 10) {
+        if (winRatePercent >= 50) {
+            suggestedRR = '1 : 2';
+            suggestionText = 'With your current win rate, targeting a 1:2 Risk/Reward ratio on trades can be an effective strategy for profitability.';
+        } else if (winRatePercent >= 33) {
+            suggestedRR = '1 : 3';
+            suggestionText = 'To maintain profitability with this win rate, it is advisable to aim for a minimum Risk/Reward ratio of 1:3.';
+        } else {
+            suggestedRR = '1 : 3+';
+            suggestionText = 'Your win rate is below 33%. Focus on improving your strategy or only taking trades with a very high Risk/Reward ratio.';
+        }
+    }
+
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <h2 className="text-xl font-bold mb-4 text-center">Advanced Analytics Dashboard</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                    <h3 className="font-bold text-lg mb-4">Tag Performance Analysis</h3>
-                    <div>
-                        <h4 className="font-semibold text-green-500 mb-2">Best Strategies (Top 3)</h4>
-                        <ul className="space-y-2 text-sm">
-                            {tagPerformance.top3.length > 0 ? tagPerformance.top3.map(tag => (<li key={tag.name} className="flex justify-between"><span className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-1 rounded">{tag.name}</span><span className="font-mono">{formatCurrency(tag.pnl)}</span></li>)) : <li>No data</li>}
-                        </ul>
+                    <h3 className="font-bold text-lg mb-4 text-center">Tag Performance Leaderboard</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        {/* Best Strategies */}
+                        <div>
+                            <h4 className="font-semibold text-green-500 mb-2 text-center">Best Strategies</h4>
+                            <ul className="space-y-2 text-sm">
+                                {tagPerformance.top3.length > 0 
+                                    ? tagPerformance.top3.map((tag, index) => {
+                                        const rankColors = ['text-yellow-400', 'text-gray-400', 'text-orange-400'];
+                                        const rankColor = index < 3 ? rankColors[index] : 'text-gray-500';
+                                        return (
+                                            <li key={tag.name} className="flex items-center justify-between p-2 rounded-md bg-white dark:bg-gray-800 shadow-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`font-black text-lg w-6 text-center ${rankColor}`}>{index + 1}</span>
+                                                    <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-2 py-1 rounded font-semibold">{tag.name}</span>
+                                                </div>
+                                                <span className="font-mono font-semibold text-green-500">{formatCurrency(tag.pnl)}</span>
+                                            </li>
+                                        );
+                                    }) 
+                                    : <li className="text-center text-gray-500 p-4">No winning tags yet.</li>}
+                            </ul>
+                        </div>
+
+                        {/* Biggest Mistakes */}
+                        <div>
+                            <h4 className="font-semibold text-red-500 mb-2 text-center">Biggest Mistakes</h4>
+                            <ul className="space-y-2 text-sm">
+                                {tagPerformance.bottom3.length > 0 
+                                    ? tagPerformance.bottom3.map((tag, index) => {
+                                        const rankColors = ['text-yellow-400', 'text-gray-400', 'text-orange-400'];
+                                        const rankColor = index < 3 ? rankColors[index] : 'text-gray-500';
+                                        return (
+                                            <li key={tag.name} className="flex items-center justify-between p-2 rounded-md bg-white dark:bg-gray-800 shadow-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`font-black text-lg w-6 text-center ${rankColor}`}>{index + 1}</span>
+                                                    <span className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-1 rounded font-semibold">{tag.name}</span>
+                                                </div>
+                                                <span className="font-mono font-semibold text-red-500">{formatCurrency(tag.pnl)}</span>
+                                            </li>
+                                        );
+                                    }) 
+                                    : <li className="text-center text-gray-500 p-4">No losing tags yet.</li>}
+                            </ul>
+                        </div>
                     </div>
-                    <hr className="my-4 border-gray-200 dark:border-gray-700"/>
-                    <div>
-                        <h4 className="font-semibold text-red-500 mb-2">Biggest Mistakes (Top 3)</h4>
-                        <ul className="space-y-2 text-sm">
-                                {tagPerformance.bottom3.length > 0 ? tagPerformance.bottom3.map(tag => (<li key={tag.name} className="flex justify-between"><span className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-1 rounded">{tag.name}</span><span className="font-mono">{formatCurrency(tag.pnl)}</span></li>)) : <li>No data</li>}
-                        </ul>
-                    </div>
-                </div>
-                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                     <h3 className="font-bold text-lg mb-4">Risk & Psychology Analysis</h3>
-                     <div className="space-y-4 text-sm">
-                        <div className="flex justify-between items-center"><span>Max Win Streak</span><span className="font-bold text-2xl text-green-500">{streaks.maxWinStreak}</span></div>
-                        <div className="flex justify-between items-center"><span>Max Loss Streak</span><span className="font-bold text-2xl text-red-500">{streaks.maxLossStreak}</span></div>
-                        <hr className="my-2 border-gray-200 dark:border-gray-700"/>
-                        <div className="flex justify-between items-center"><span>Average Win/Loss Ratio</span><span className={`font-bold text-2xl ${avgWinLossRatio >= 1.5 ? 'text-green-500' : 'text-yellow-500'}`}>{avgWinLossRatio.toFixed(2)} : 1</span></div>
-                     </div>
                 </div>
                  <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                      <h3 className="font-bold text-lg mb-4">Execution & Drawdown</h3>
@@ -1680,11 +1723,19 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
                      </div>
                 </div>
                 <div className="lg:col-span-2 xl:col-span-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                    <h3 className="font-bold text-lg mb-4">Expectancy & R:R Suggestion</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                        <div><p className="text-sm text-gray-500 dark:text-gray-400">Expectancy per Trade</p><p className={`font-bold text-2xl ${expectancy.expectancyValue >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(expectancy.expectancyValue)}</p></div>
-                        <div><p className="text-sm text-gray-500 dark:text-gray-400">Breakeven R:R (Min.)</p><p className="font-bold text-2xl">1 : {expectancy.breakEvenRRR.toFixed(2)}</p></div>
-                        <div className="md:col-span-3 xl:col-span-1 bg-blue-100 dark:bg-blue-900/50 p-3 rounded-lg"><p className="text-sm font-bold text-blue-800 dark:text-blue-300">Suggestion</p><p className="text-xs mt-1 text-blue-700 dark:text-blue-400">{expectancy.suggestion}</p></div>
+                    <h3 className="font-bold text-lg mb-4 text-center">Risk/Reward Suggestion</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center items-center">
+                        <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Overall Win Rate</p>
+                            <p className="font-bold text-4xl text-blue-500">{winRatePercent.toFixed(1)}%</p>
+                        </div>
+                        <div className="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-lg">
+                            <p className="text-sm text-blue-800 dark:text-blue-300">Suggested Minimum R:R</p>
+                            <p className="font-bold text-4xl text-blue-700 dark:text-blue-200">{suggestedRR}</p>
+                        </div>
+                        <div className="md:col-span-2 mt-2">
+                            <p className="text-xs text-center text-gray-500 dark:text-gray-400">{suggestionText}</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1764,14 +1815,18 @@ const DailyDetailModal = ({ date, transactions, onClose, onTradeClick, dailyJour
 
 const TradeCalculator = ({ winRate, avgTradesPerDay }) => {
     const [inputs, setInputs] = useState({ equity: '10000', target: '12000', risk: '1' });
+    const [riskUnit, setRiskUnit] = useState('%');
     const [results, setResults] = useState(null);
     const [error, setError] = useState('');
 
     const handleInputChange = (e) => setInputs(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
     const calculateProjections = () => {
-        const equity = parseFloat(inputs.equity), target = parseFloat(inputs.target), riskPercent = parseFloat(inputs.risk);
-        if (isNaN(equity) || isNaN(target) || isNaN(riskPercent) || equity <= 0 || target <= equity || riskPercent <= 0) {
+        const equity = parseFloat(inputs.equity);
+        const target = parseFloat(inputs.target);
+        const riskValue = parseFloat(inputs.risk);
+
+        if (isNaN(equity) || isNaN(target) || isNaN(riskValue) || equity <= 0 || target <= equity || riskValue <= 0) {
             setError('Invalid input. Please ensure all numbers are positive and target > initial equity.');
             return setResults(null);
         }
@@ -1782,11 +1837,25 @@ const TradeCalculator = ({ winRate, avgTradesPerDay }) => {
         setError('');
 
         const scenarios = [1, 2, 3].map(rr => {
-            let currentEquity = equity, tradeCount = 0;
-            const expectedGainPerTrade = (winRate * (currentEquity * (riskPercent / 100) * rr)) - ((1 - winRate) * (currentEquity * (riskPercent / 100)));
-            if (expectedGainPerTrade <= 0) return { rr, trades: Infinity, days: Infinity };
+            let currentEquity = equity;
+            let tradeCount = 0;
+            
+            const getExpectedGain = (eq) => {
+                const riskAmount = riskUnit === '%' ? eq * (riskValue / 100) : riskValue;
+                if (riskAmount > eq) return -Infinity; 
+                return (winRate * riskAmount * rr) - ((1 - winRate) * riskAmount);
+            };
+            
+            const initialExpectedGain = getExpectedGain(currentEquity);
+            if (initialExpectedGain <= 0) return { rr, trades: Infinity, days: Infinity };
+
             while (currentEquity < target && tradeCount < 5000) {
-                currentEquity += (winRate * (currentEquity * (riskPercent / 100) * rr)) - ((1 - winRate) * (currentEquity * (riskPercent / 100)));
+                const gain = getExpectedGain(currentEquity);
+                if (gain === -Infinity) {
+                    tradeCount = Infinity;
+                    break;
+                }
+                currentEquity += gain;
                 tradeCount++;
             }
             return { rr, trades: tradeCount >= 5000 ? Infinity : tradeCount, days: avgTradesPerDay > 0 ? Math.ceil(tradeCount / avgTradesPerDay) : Infinity };
@@ -1800,7 +1869,16 @@ const TradeCalculator = ({ winRate, avgTradesPerDay }) => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Initial Equity ($)</label><input name="equity" type="number" value={inputs.equity} onChange={handleInputChange} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
                 <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Target Equity ($)</label><input name="target" type="number" value={inputs.target} onChange={handleInputChange} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
-                <div><label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Risk per Trade (%)</label><input name="risk" type="number" value={inputs.risk} onChange={handleInputChange} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Risk per Trade</label>
+                    <div className="flex">
+                        <input name="risk" type="number" value={inputs.risk} onChange={handleInputChange} className="w-full bg-gray-50 dark:bg-gray-700 border rounded-l-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"/>
+                        <div className="flex">
+                            <button onClick={() => setRiskUnit('%')} className={`px-4 py-2 text-sm font-semibold border-t border-b ${riskUnit === '%' ? 'bg-blue-600 text-white z-10' : 'bg-gray-200 dark:bg-gray-600'}`}>%</button>
+                            <button onClick={() => setRiskUnit('$')} className={`px-4 py-2 text-sm font-semibold border rounded-r-md ${riskUnit === '$' ? 'bg-blue-600 text-white z-10' : 'bg-gray-200 dark:bg-gray-600'}`}>$</button>
+                        </div>
+                    </div>
+                </div>
                 <button onClick={calculateProjections} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition">Calculate Projection</button>
             </div>
             {error && <p className="text-red-500 text-center mt-4">{error}</p>}
@@ -2535,7 +2613,7 @@ function TradingJournal({ user, handleLogout }) {
 
     return {
         dashboardStats: { totalPnl: totalPnlFromTrades, currentEquity, totalDeposits: deposits, totalWithdrawals: withdrawals, winRate, totalTrades: tradesOnly.length },
-        advancedStats: { tagPerformance: { top3, bottom3 }, streaks: { maxWinStreak, maxLossStreak }, dayPerformance, avgWinLossRatio, ratingPerformance: { pnlByRating1, pnlByRating5 }, drawdown: { maxDrawdownValue, maxDrawdownPercent, longestDrawdownDuration }, expectancy: { expectancyValue, breakEvenRRR, suggestion }, winRate, avgTradesPerDay },
+        advancedStats: { totalTrades: tradesOnly.length, tagPerformance: { top3, bottom3 }, streaks: { maxWinStreak, maxLossStreak }, dayPerformance, avgWinLossRatio, ratingPerformance: { pnlByRating1, pnlByRating5 }, drawdown: { maxDrawdownValue, maxDrawdownPercent, longestDrawdownDuration }, expectancy: { expectancyValue, breakEvenRRR, suggestion }, winRate, avgTradesPerDay },
         weeklyStats: { pnl: weeklyPnl, wins: weeklyWins, losses: weeklyLosses, totalTrades: weeklyTotalTrades, winRate: weeklyWinRate, bestTrade, worstTrade, consistency: weeklyConsistency },
         dailyStats,
         consistencyByDay
@@ -2989,35 +3067,47 @@ Keep each section concise and to the point. Do not add any other sections or int
           )}
 
           {activeTab === 'Analytics' && (
-            <div className="space-y-8">
-              <div className="xl:hidden">
-                <MonthlyStatsBreakdown monthlyStats={monthlyStats} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-5 gap-6">
+              
+              {/* Trading Day Performance */}
+              <div className="xl:col-span-3 lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                  <h3 className="font-bold text-lg mb-4 text-center">Trading Day Performance</h3>
+                  <div className="h-64">
+                    <PerformanceByDayChart dayPerformance={advancedStats.dayPerformance} />
+                  </div>
               </div>
-              <PerformanceByDayChart dayPerformance={advancedStats.dayPerformance} />
-              <AdvancedAnalyticsDashboard stats={advancedStats} />
-              <TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} />
-              <TagManagementPage
-                tags={tags}
-                transactions={transactions}
-                onAddTag={addTag}
-                onUpdateTag={updateTag}
-                onDeleteTag={deleteTag}
-              />
+              
+              {/* Profitability */}
+              <div className="xl:col-span-2 lg:col-span-2">
+                 <MonthlyStatsBreakdown monthlyStats={monthlyStats} />
+              </div>
+
+              {/* Advanced Analytics */}
+              <div className="lg:col-span-2 xl:col-span-5">
+                <AdvancedAnalyticsDashboard stats={advancedStats} />
+              </div>
+              
+              {/* Profit Calculator */}
+              <div className="lg:col-span-2 xl:col-span-5">
+                <TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} />
+              </div>
+
+              {/* Tag Management */}
+              <div className="lg:col-span-2 xl:col-span-5">
+                <TagManagementPage
+                    tags={tags}
+                    transactions={transactions}
+                    onAddTag={addTag}
+                    onUpdateTag={updateTag}
+                    onDeleteTag={deleteTag}
+                />
+              </div>
+
             </div>
           )}
           
           {activeTab === 'Community' && (
             <CommunityPage user={user} profileData={profileData} />
-          )}
-
-          {activeTab === 'Tags' && (
-            <TagManagementPage
-                tags={tags}
-                transactions={transactions}
-                onAddTag={addTag}
-                onUpdateTag={updateTag}
-                onDeleteTag={deleteTag}
-            />
           )}
 
         </main>
@@ -3238,6 +3328,12 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
+
+
+
+
+
 
 
 
