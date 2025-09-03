@@ -980,7 +980,7 @@ const TagManagementPage = ({ tags, transactions, onAddTag, onUpdateTag, onDelete
                     </div>
                     <div>
                          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Color</label>
-                        <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                        <div className="flex flex-wrap items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
                             {colors.map(color => (
                                 <button
                                     key={color}
@@ -1726,67 +1726,69 @@ const AdvancedAnalyticsDashboard = ({ stats }) => {
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <h2 className="text-xl font-bold mb-4 text-center">Advanced Analytics Dashboard</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                    <h3 className="font-bold text-lg mb-4 text-center">Tag Performance Leaderboard</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        {/* Best Strategies */}
-                        <div>
-                            <h4 className="font-semibold text-green-500 mb-2 text-center">Best Strategies</h4>
-                            <ul className="space-y-2 text-sm">
-                                {tagPerformance.top3.length > 0 
-                                    ? tagPerformance.top3.map((tag, index) => {
-                                        const rankColors = ['text-yellow-400', 'text-gray-400', 'text-orange-400'];
-                                        const rankColor = index < 3 ? rankColors[index] : 'text-gray-500';
-                                        return (
-                                            <li key={tag.name} className="flex items-center justify-between p-2 rounded-md bg-white dark:bg-gray-800 shadow-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`font-black text-lg w-6 text-center ${rankColor}`}>{index + 1}</span>
-                                                    <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-2 py-1 rounded font-semibold">{tag.name}</span>
-                                                </div>
-                                                <span className="font-mono font-semibold text-green-500">{formatCurrency(tag.pnl)}</span>
-                                            </li>
-                                        );
-                                    }) 
-                                    : <li className="text-center text-gray-500 p-4">No winning tags yet.</li>}
-                            </ul>
-                        </div>
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                        <h3 className="font-bold text-lg mb-4 text-center">Tag Performance Leaderboard</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            {/* Best Strategies */}
+                            <div>
+                                <h4 className="font-semibold text-green-500 mb-2 text-center">Best Strategies</h4>
+                                <ul className="space-y-2 text-sm">
+                                    {tagPerformance.top3.length > 0 
+                                        ? tagPerformance.top3.map((tag, index) => {
+                                            const rankColors = ['text-yellow-400', 'text-gray-400', 'text-orange-400'];
+                                            const rankColor = index < 3 ? rankColors[index] : 'text-gray-500';
+                                            return (
+                                                <li key={tag.name} className="flex items-center justify-between p-2 rounded-md bg-white dark:bg-gray-800 shadow-sm">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`font-black text-lg w-6 text-center ${rankColor}`}>{index + 1}</span>
+                                                        <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-2 py-1 rounded font-semibold">{tag.name}</span>
+                                                    </div>
+                                                    <span className="font-mono font-semibold text-green-500">{formatCurrency(tag.pnl)}</span>
+                                                </li>
+                                            );
+                                        }) 
+                                        : <li className="text-center text-gray-500 p-4">No winning tags yet.</li>}
+                                </ul>
+                            </div>
 
-                        {/* Biggest Mistakes */}
-                        <div>
-                            <h4 className="font-semibold text-red-500 mb-2 text-center">Biggest Mistakes</h4>
-                            <ul className="space-y-2 text-sm">
-                                {tagPerformance.bottom3.length > 0 
-                                    ? tagPerformance.bottom3.map((tag, index) => {
-                                        const rankColors = ['text-yellow-400', 'text-gray-400', 'text-orange-400'];
-                                        const rankColor = index < 3 ? rankColors[index] : 'text-gray-500';
-                                        return (
-                                            <li key={tag.name} className="flex items-center justify-between p-2 rounded-md bg-white dark:bg-gray-800 shadow-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`font-black text-lg w-6 text-center ${rankColor}`}>{index + 1}</span>
-                                                    <span className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-1 rounded font-semibold">{tag.name}</span>
-                                                </div>
-                                                <span className="font-mono font-semibold text-red-500">{formatCurrency(tag.pnl)}</span>
-                                            </li>
-                                        );
-                                    }) 
-                                    : <li className="text-center text-gray-500 p-4">No losing tags yet.</li>}
-                            </ul>
+                            {/* Biggest Mistakes */}
+                            <div>
+                                <h4 className="font-semibold text-red-500 mb-2 text-center">Biggest Mistakes</h4>
+                                <ul className="space-y-2 text-sm">
+                                    {tagPerformance.bottom3.length > 0 
+                                        ? tagPerformance.bottom3.map((tag, index) => {
+                                            const rankColors = ['text-yellow-400', 'text-gray-400', 'text-orange-400'];
+                                            const rankColor = index < 3 ? rankColors[index] : 'text-gray-500';
+                                            return (
+                                                <li key={tag.name} className="flex items-center justify-between p-2 rounded-md bg-white dark:bg-gray-800 shadow-sm">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`font-black text-lg w-6 text-center ${rankColor}`}>{index + 1}</span>
+                                                        <span className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-1 rounded font-semibold">{tag.name}</span>
+                                                    </div>
+                                                    <span className="font-mono font-semibold text-red-500">{formatCurrency(tag.pnl)}</span>
+                                                </li>
+                                            );
+                                        }) 
+                                        : <li className="text-center text-gray-500 p-4">No losing tags yet.</li>}
+                                </ul>
+                            </div>
                         </div>
                     </div>
+                     <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                         <h3 className="font-bold text-lg mb-4">Execution & Drawdown</h3>
+                         <div className="space-y-2 text-sm">
+                            <div className="flex justify-between items-center"><span>P&L on 5-Star Trades</span><span className={`font-semibold ${ratingPerformance.pnlByRating5 >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(ratingPerformance.pnlByRating5)}</span></div>
+                            <div className="flex justify-between items-center"><span>P&L on 1-Star Trades</span><span className={`font-semibold ${ratingPerformance.pnlByRating1 >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(ratingPerformance.pnlByRating1)}</span></div>
+                            <hr className="my-2 border-gray-200 dark:border-gray-700"/>
+                            <div className="flex justify-between items-center"><span>Maximum Drawdown</span><span className="font-semibold text-red-500">{formatCurrency(drawdown.maxDrawdownValue)}</span></div>
+                             <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400"><span></span><span>({drawdown.maxDrawdownPercent.toFixed(2)}%)</span></div>
+                            <div className="flex justify-between items-center"><span>Longest Drawdown Period</span><span className="font-semibold">{drawdown.longestDrawdownDuration} trades</span></div>
+                         </div>
+                    </div>
                 </div>
-                 <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                     <h3 className="font-bold text-lg mb-4">Execution & Drawdown</h3>
-                     <div className="space-y-2 text-sm">
-                        <div className="flex justify-between items-center"><span>P&L on 5-Star Trades</span><span className={`font-semibold ${ratingPerformance.pnlByRating5 >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(ratingPerformance.pnlByRating5)}</span></div>
-                        <div className="flex justify-between items-center"><span>P&L on 1-Star Trades</span><span className={`font-semibold ${ratingPerformance.pnlByRating1 >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(ratingPerformance.pnlByRating1)}</span></div>
-                        <hr className="my-2 border-gray-200 dark:border-gray-700"/>
-                        <div className="flex justify-between items-center"><span>Maximum Drawdown</span><span className="font-semibold text-red-500">{formatCurrency(drawdown.maxDrawdownValue)}</span></div>
-                         <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400"><span></span><span>({drawdown.maxDrawdownPercent.toFixed(2)}%)</span></div>
-                        <div className="flex justify-between items-center"><span>Longest Drawdown Period</span><span className="font-semibold">{drawdown.longestDrawdownDuration} trades</span></div>
-                     </div>
-                </div>
-                <div className="lg:col-span-2 xl:col-span-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                     <h3 className="font-bold text-lg mb-4 text-center">Risk/Reward Suggestion</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center items-center">
                         <div>
@@ -3395,6 +3397,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
 
 
 
