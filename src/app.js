@@ -1616,14 +1616,36 @@ const TradingCalendar = ({ transactions, currentDate, setCurrentDate, onDayClick
 };
 
 const PerformanceByDayChart = ({ dayPerformance }) => {
-    const Bar = ({ label, value, maxValue, color }) => {
-        const heightPercentage = maxValue > 0 ? (Math.abs(value) / maxValue) * 100 : 0;
+    const [tooltip, setTooltip] = useState(null); // { day, data, x, y }
+    const chartRef = useRef(null);
+
+    const handleMouseLeave = () => {
+        setTooltip(null);
+    };
+
+    const Bar = ({ day, data, maxValue, color, onHover }) => {
+        const heightPercentage = maxValue > 0 ? (Math.abs(data.pnl) / maxValue) * 100 : 0;
+        const barRef = useRef(null);
+
+        const handleMouseEnter = () => {
+            if (barRef.current) {
+                const rect = barRef.current.getBoundingClientRect();
+                const chartRect = chartRef.current.getBoundingClientRect();
+                onHover({
+                    day: day,
+                    data,
+                    x: rect.left - chartRect.left + rect.width / 2,
+                    y: rect.top - chartRect.top,
+                });
+            }
+        };
+
         return (
-            <div className="flex flex-col items-center h-full">
+            <div className="flex flex-col items-center h-full" onMouseEnter={handleMouseEnter} ref={barRef}>
                 <div className="w-full h-full flex items-end justify-center">
-                    <div className={`w-10 rounded-t-md transition-all duration-500 ${color}`} style={{ height: `${heightPercentage}%` }}></div>
+                    <div className={`w-10 rounded-t-md transition-all duration-300 hover:opacity-80 ${color}`} style={{ height: `${heightPercentage}%` }}></div>
                 </div>
-                <span className="text-xs mt-1 flex-shrink-0">{label}</span>
+                <span className="text-xs mt-1 flex-shrink-0">{day.substring(0, 3)}</span>
             </div>
         );
     };
@@ -1631,8 +1653,48 @@ const PerformanceByDayChart = ({ dayPerformance }) => {
     const maxDayPnl = Math.max(0.01, ...Object.values(dayPerformance).map(d => Math.abs(d.pnl)));
 
     return (
-        <div className="grid grid-cols-7 gap-2 h-full">
-            {Object.entries(dayPerformance).map(([day, data]) => (<Bar key={day} label={day.substring(0,3)} value={data.pnl} maxValue={maxDayPnl} color={data.pnl >= 0 ? 'bg-green-500' : 'bg-red-500'}/>))}
+        <div className="relative h-full" ref={chartRef} onMouseLeave={handleMouseLeave}>
+            <div className="grid grid-cols-7 gap-2 h-full">
+                {Object.entries(dayPerformance).map(([day, data]) => (
+                    <Bar
+                        key={day}
+                        day={day}
+                        data={data}
+                        maxValue={maxDayPnl}
+                        color={data.pnl >= 0 ? 'bg-green-500' : 'bg-red-500'}
+                        onHover={setTooltip}
+                    />
+                ))}
+            </div>
+
+            {tooltip && tooltip.data.count > 0 && (
+                <div
+                    className="absolute p-3 bg-white dark:bg-gray-900 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 pointer-events-none z-10 w-48 text-xs transition-opacity duration-200"
+                    style={{
+                        left: `${tooltip.x}px`,
+                        top: `${tooltip.y}px`,
+                        transform: 'translate(-50%, -110%)',
+                        opacity: 1,
+                    }}
+                >
+                    <h4 className="font-bold text-center mb-2 border-b border-gray-200 dark:border-gray-700 pb-1">{tooltip.day}</h4>
+                    <div className="space-y-1">
+                        <p className="flex justify-between"><span>Net P&L:</span> <span className={`font-bold ${tooltip.data.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tooltip.data.pnl)}</span></p>
+                        <p className="flex justify-between"><span>Win Rate:</span> <span className="font-bold">{(tooltip.data.count > 0 ? (tooltip.data.wins / tooltip.data.count) * 100 : 0).toFixed(1)}%</span></p>
+                        <hr className="border-gray-200 dark:border-gray-600 my-1"/>
+                        <p className="flex justify-between"><span>Wins:</span> <span className="font-semibold text-green-500">{tooltip.data.wins}</span></p>
+                        <p className="flex justify-between"><span>Losses:</span> <span className="font-semibold text-red-500">{tooltip.data.losses}</span></p>
+                        <hr className="border-gray-200 dark:border-gray-600 my-1"/>
+                        <p className="flex justify-between items-center">
+                            <span>Avg. Rating:</span>
+                            <span className="font-semibold flex items-center">
+                                {tooltip.data.ratedTrades > 0 ? (tooltip.data.totalRating / tooltip.data.ratedTrades).toFixed(1) : 'N/A'}
+                                {tooltip.data.ratedTrades > 0 && <StarIcon filled={true} className="w-4 h-4 ml-1 text-yellow-400"/>}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -2120,31 +2182,36 @@ const DailyBriefingAndBiasSetter = ({ todayBias, onSaveBias }) => {
     );
 };
 
-const MonthlyStatsBreakdown = ({ monthlyStats }) => (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md h-full">
-        <h2 className="text-xl font-bold mb-4 text-center">Monthly Stats Breakdown</h2>
-        <div className="flex flex-col space-y-4">
-            <div className="w-40 h-40 mx-auto"><DonutChart data={[{ label: 'Profit', value: monthlyStats.totalProfit, color: '#48bb78' }, { label: 'Loss', value: Math.abs(monthlyStats.totalLoss), color: '#f56565' }]}/></div>
-            <div className="space-y-2 text-sm">
-                <p className="flex justify-between"><span>Profit:</span> <span className="font-semibold text-green-500">{formatCurrency(monthlyStats.totalProfit)}</span></p>
-                <p className="flex justify-between"><span>Loss:</span> <span className="font-semibold text-red-500">{formatCurrency(monthlyStats.totalLoss)}</span></p>
-                <p className="flex justify-between font-bold border-t border-gray-200 dark:border-gray-700 pt-2 mt-2"><span>Net P&L:</span> <span className={monthlyStats.netPnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(monthlyStats.netPnl)}</span></p>
-                <hr className="my-2 border-gray-200 dark:border-gray-700"/>
-                <p className="flex justify-between"><span>Total Trades:</span> <span className="font-semibold">{monthlyStats.total}</span></p>
-                <p className="flex justify-between"><span>Winning Trades:</span> <span className="font-semibold">{monthlyStats.wins}</span></p>
-                <p className="flex justify-between"><span>Losing Trades:</span> <span className="font-semibold">{monthlyStats.losses}</span></p>
-                <p className="flex justify-between"><span>Win Rate:</span> <span className="font-semibold">{monthlyStats.winRate.toFixed(1)}%</span></p>
-                 <hr className="my-2 border-gray-200 dark:border-gray-700"/>
-                <p className="flex justify-between"><span>Bias Correct:</span> <span className="font-semibold text-green-500">{monthlyStats.biasCorrect}</span></p>
-                <p className="flex justify-between"><span>Bias Incorrect:</span> <span className="font-semibold text-red-500">{monthlyStats.biasIncorrect}</span></p>
-                <hr className="my-2 border-gray-200 dark:border-gray-700"/>
-                <p className="flex justify-between"><span>Disciplined Days:</span> <span className="font-semibold text-green-500">{monthlyStats.disciplinedDays}</span></p>
-                <p className="flex justify-between"><span>Overtraded Days:</span> <span className="font-semibold text-yellow-500">{monthlyStats.overtradedDays}</span></p>
-                <p className="flex justify-between"><span>Loss Exceeded Days:</span> <span className="font-semibold text-red-500">{monthlyStats.lossExceededDays}</span></p>
+const MonthlyStatsBreakdown = ({ monthlyStats }) => {
+    return (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-bold mb-6">Monthly Stats Breakdown</h2>
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="w-32 h-32 flex-shrink-0">
+                    <DonutChart data={[{ label: 'Profit', value: monthlyStats.totalProfit, color: '#48bb78' }, { label: 'Loss', value: Math.abs(monthlyStats.totalLoss), color: '#f56565' }]}/>
+                </div>
+                <div className="w-full space-y-2 text-sm">
+                    <p className="flex justify-between"><span>Profit:</span> <span className="font-semibold text-green-500">{formatCurrency(monthlyStats.totalProfit)}</span></p>
+                    <p className="flex justify-between"><span>Loss:</span> <span className="font-semibold text-red-500">{formatCurrency(monthlyStats.totalLoss)}</span></p>
+                    <p className="flex justify-between font-bold border-t border-gray-200 dark:border-gray-700 pt-2 mt-2"><span>Net P&L:</span> <span className={monthlyStats.netPnl >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(monthlyStats.netPnl)}</span></p>
+                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div><p className="flex justify-between"><span>Total Trades:</span> <span className="font-semibold">{monthlyStats.total}</span></p></div>
+                <div><p className="flex justify-between"><span>Win Rate:</span> <span className="font-semibold">{monthlyStats.winRate.toFixed(1)}%</span></p></div>
+                <div><p className="flex justify-between"><span>Wins:</span> <span className="font-semibold text-green-500">{monthlyStats.wins}</span></p></div>
+                <div><p className="flex justify-between"><span>Losses:</span> <span className="font-semibold text-red-500">{monthlyStats.losses}</span></p></div>
+                <div className="col-span-2"><hr className="my-1 border-gray-200 dark:border-gray-700"/></div>
+                <div><p className="flex justify-between"><span>Bias Correct:</span> <span className="font-semibold text-green-500">{monthlyStats.biasCorrect}</span></p></div>
+                <div><p className="flex justify-between"><span>Bias Incorrect:</span> <span className="font-semibold text-red-500">{monthlyStats.biasIncorrect}</span></p></div>
+                <div className="col-span-2"><hr className="my-1 border-gray-200 dark:border-gray-700"/></div>
+                <div><p className="flex justify-between"><span>Disciplined:</span> <span className="font-semibold text-green-500">{monthlyStats.disciplinedDays}</span></p></div>
+                <div><p className="flex justify-between"><span>Overtraded:</span> <span className="font-semibold text-yellow-500">{monthlyStats.overtradedDays}</span></p></div>
+                <div className="col-span-2"><p className="flex justify-between"><span>Loss Exceeded:</span> <span className="font-semibold text-red-500">{monthlyStats.lossExceededDays}</span></p></div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 const ProfileModal = ({ user, profileData, onSave, onCancel }) => {
     const [displayName, setDisplayName] = useState(profileData.displayName || '');
@@ -2578,8 +2645,18 @@ function TradingJournal({ user, handleLogout }) {
     const avgLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.pnl, 0) / (losingTrades.length || 1));
     const avgWinLossRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const dayPerformance = dayNames.reduce((acc, day) => ({...acc, [day]: {pnl: 0, count: 0}}), {});
-    tradesOnly.forEach(trade => { const day = dayNames[trade.date.toDate().getDay()]; dayPerformance[day].pnl += trade.pnl; dayPerformance[day].count++; });
+    const dayPerformance = dayNames.reduce((acc, day) => ({...acc, [day]: {pnl: 0, count: 0, wins: 0, losses: 0, totalRating: 0, ratedTrades: 0 }}), {});
+    tradesOnly.forEach(trade => { 
+        const day = dayNames[trade.date.toDate().getDay()]; 
+        dayPerformance[day].pnl += trade.pnl; 
+        dayPerformance[day].count++;
+        if (trade.status === 'Win') dayPerformance[day].wins++;
+        else if (trade.status === 'Loss') dayPerformance[day].losses++;
+        if (trade.rating > 0) {
+            dayPerformance[day].totalRating += trade.rating;
+            dayPerformance[day].ratedTrades++;
+        }
+    });
     const pnlByRating1 = tradesOnly.filter(t => t.rating === 1).reduce((sum, t) => sum + t.pnl, 0);
     const pnlByRating5 = tradesOnly.filter(t => t.rating === 5).reduce((sum, t) => sum + t.pnl, 0);
     const chronoSortedTransactions = [...sourceData].sort((a,b) => a.date.toDate() - b.date.toDate());
@@ -3067,42 +3144,30 @@ Keep each section concise and to the point. Do not add any other sections or int
           )}
 
           {activeTab === 'Analytics' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-5 gap-6">
-              
-              {/* Trading Day Performance */}
-              <div className="xl:col-span-3 lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Content Column */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                   <h3 className="font-bold text-lg mb-4 text-center">Trading Day Performance</h3>
                   <div className="h-64">
                     <PerformanceByDayChart dayPerformance={advancedStats.dayPerformance} />
                   </div>
-              </div>
-              
-              {/* Profitability */}
-              <div className="xl:col-span-2 lg:col-span-2">
-                 <MonthlyStatsBreakdown monthlyStats={monthlyStats} />
-              </div>
-
-              {/* Advanced Analytics */}
-              <div className="lg:col-span-2 xl:col-span-5">
+                </div>
                 <AdvancedAnalyticsDashboard stats={advancedStats} />
-              </div>
-              
-              {/* Profit Calculator */}
-              <div className="lg:col-span-2 xl:col-span-5">
                 <TradeCalculator winRate={advancedStats.winRate} avgTradesPerDay={advancedStats.avgTradesPerDay} />
               </div>
 
-              {/* Tag Management */}
-              <div className="lg:col-span-2 xl:col-span-5">
+              {/* Sidebar Column */}
+              <div className="lg:col-span-1 space-y-6">
+                <MonthlyStatsBreakdown monthlyStats={monthlyStats} />
                 <TagManagementPage
-                    tags={tags}
-                    transactions={transactions}
-                    onAddTag={addTag}
-                    onUpdateTag={updateTag}
-                    onDeleteTag={deleteTag}
+                  tags={tags}
+                  transactions={transactions}
+                  onAddTag={addTag}
+                  onUpdateTag={updateTag}
+                  onDeleteTag={deleteTag}
                 />
               </div>
-
             </div>
           )}
           
@@ -3328,6 +3393,12 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
+
+
+
+
+
 
 
 
