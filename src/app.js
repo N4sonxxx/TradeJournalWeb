@@ -549,6 +549,210 @@ const PostItem = ({ post, user, profileData }) => {
     );
 };
 
+const ChartAnalyzerPage = () => {
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [analysis, setAnalysis] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const fileInputRef = useRef(null);
+
+    const fileToBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = error => reject(error);
+    });
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 4 * 1024 * 1024) { // 4MB limit for Gemini
+                setError('Image size cannot exceed 4MB.');
+                return;
+            }
+            setError('');
+            setAnalysis(null);
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleAnalyze = async () => {
+        if (!imageFile) return;
+        setIsLoading(true);
+        setError('');
+        setAnalysis(null);
+
+        try {
+            const base64Image = await fileToBase64(imageFile);
+            
+            const systemInstruction = `You are an expert technical analyst for financial markets. Analyze the provided chart image and return a JSON object with your findings.
+- "sentiment" should be either "Bullish" or "Bearish".
+- "entry" should suggest a specific price or price range for a potential trade entry.
+- "stopLoss" should suggest a specific price for a stop loss order.
+- "takeProfit" should suggest a specific price for a take profit order.
+Provide a concise rationale for each point. This is for educational purposes ONLY and is NOT financial advice.`;
+
+            const userQuery = "Analyze this financial chart and provide potential trade parameters based on technical patterns.";
+            
+            const jsonSchema = {
+                type: "OBJECT",
+                properties: {
+                    sentiment: { type: "STRING", description: "Overall market sentiment (Bullish or Bearish)." },
+                    entry: { type: "STRING", description: "Suggested entry price or range." },
+                    stopLoss: { type: "STRING", description: "Suggested stop loss price." },
+                    takeProfit: { type: "STRING", description: "Suggested take profit price." },
+                    rationale: { type: "STRING", description: "Brief rationale for the analysis." }
+                },
+                required: ["sentiment", "entry", "stopLoss", "takeProfit", "rationale"]
+            };
+            
+            // This is a vision call, so we construct the payload with text and image data.
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: userQuery },
+                        { inlineData: { mimeType: imageFile.type, data: base64Image } }
+                    ]
+                }],
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: jsonSchema,
+                },
+            };
+
+            const apiKey = "AIzaSyCwiCfrPq6J0deEbYewPDw5bJMgdpJxTag";
+            const model = 'gemini-2.5-flash-preview-05-20';
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.json();
+                console.error('Gemini Vision API Error:', errorBody);
+                throw new Error(`API error: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) {
+                console.error("Unexpected Vision API response structure:", result);
+                throw new Error("Invalid response from AI.");
+            }
+
+            setAnalysis(JSON.parse(text));
+
+        } catch (err) {
+            console.error("Analysis failed:", err);
+            setError(`Analysis failed. ${err.message}. Please try a clearer chart image or try again later.`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const AnalysisCard = ({ title, value, icon, colorClass }) => (
+        <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+            <div className={`flex items-center text-sm font-bold ${colorClass}`}>
+                {icon}
+                <h4 className="ml-2 uppercase tracking-wider">{title}</h4>
+            </div>
+            <p className="mt-2 text-xl font-mono">{value}</p>
+        </div>
+    );
+
+    return (
+        <div className="space-y-8 max-w-4xl mx-auto">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md text-center">
+                <h2 className="text-3xl font-bold mb-2">AI Chart Analyzer</h2>
+                <p className="text-gray-500 dark:text-gray-400">Upload a chart image to get an AI-powered technical analysis.</p>
+                
+                <div 
+                    className="mt-6 w-full h-80 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-300"
+                    onClick={() => fileInputRef.current.click()}
+                >
+                    {imagePreview ? (
+                        <img src={imagePreview} alt="Chart preview" className="max-w-full max-h-full object-contain rounded-md" />
+                    ) : (
+                        <div className="text-gray-400 dark:text-gray-500">
+                            <ImageIcon className="w-16 h-16 mx-auto mb-2" />
+                            <p className="font-semibold">Click to upload or drag & drop</p>
+                            <p className="text-xs mt-1">PNG, JPG, WEBP up to 4MB</p>
+                        </div>
+                    )}
+                </div>
+                <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    onChange={handleImageChange}
+                    className="hidden"
+                    accept="image/png, image/jpeg, image/webp"
+                />
+
+                {imagePreview && (
+                    <button 
+                        onClick={handleAnalyze}
+                        disabled={isLoading}
+                        className="mt-6 w-full max-w-xs flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-md transition duration-300 disabled:opacity-60 disabled:cursor-not-allowed mx-auto transform hover:scale-105"
+                    >
+                        <MagicWandIcon className="w-5 h-5" />
+                        <span>{isLoading ? 'Analyzing...' : 'Analyze Chart'}</span>
+                    </button>
+                )}
+            </div>
+            
+            {error && (
+                <div className="bg-red-100 dark:bg-red-900/50 border-l-4 border-red-500 text-red-700 dark:text-red-300 p-4 rounded-r-lg" role="alert">
+                    <p className="font-bold">Error</p>
+                    <p>{error}</p>
+                </div>
+            )}
+
+            {isLoading && (
+                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md text-center">
+                    <div className="animate-pulse flex flex-col items-center space-y-4">
+                        <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mt-4"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                        <div className="grid grid-cols-2 gap-4 w-full pt-4">
+                            <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                            <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                            <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                            <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        </div>
+                    </div>
+                 </div>
+            )}
+
+            {analysis && !isLoading && (
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                    <h3 className="text-2xl font-bold mb-6 text-center">Analysis Results</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <AnalysisCard 
+                            title="Sentiment"
+                            value={analysis.sentiment}
+                            icon={analysis.sentiment === 'Bullish' ? <BullIcon className="w-6 h-6"/> : <BearIcon className="w-6 h-6"/>}
+                            colorClass={analysis.sentiment === 'Bullish' ? 'text-green-500' : 'text-red-500'}
+                        />
+                        <div className="md:col-span-1 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                            <p className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rationale</p>
+                            <p className="mt-2 text-sm">{analysis.rationale}</p>
+                        </div>
+                        <AnalysisCard title="Entry Position" value={analysis.entry} icon={<CheckCircleIcon className="w-6 h-6"/>} colorClass="text-blue-500" />
+                        <AnalysisCard title="Stop Loss" value={analysis.stopLoss} icon={<XCircleIcon className="w-6 h-6"/>} colorClass="text-orange-500" />
+                        <AnalysisCard title="Take Profit" value={analysis.takeProfit} icon={<TargetIcon className="w-6 h-6"/>} colorClass="text-purple-500" />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const CommunityPage = ({ user, profileData }) => {
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -3007,6 +3211,7 @@ Keep each section concise and to the point. Do not add any other sections or int
           <TabButton tabName="Dashboard" />
           <TabButton tabName="Journal" />
           <TabButton tabName="Analytics" />
+          <TabButton tabName="Chart Analyzer" />
           <TabButton tabName="Community" />
         </nav>
 
@@ -3175,6 +3380,10 @@ Keep each section concise and to the point. Do not add any other sections or int
             </div>
           )}
           
+          {activeTab === 'Chart Analyzer' && (
+            <ChartAnalyzerPage />
+          )}
+
           {activeTab === 'Community' && (
             <CommunityPage user={user} profileData={profileData} />
           )}
@@ -3397,6 +3606,8 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
+
 
 
 
