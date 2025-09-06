@@ -549,13 +549,33 @@ const PostItem = ({ post, user, profileData }) => {
     );
 };
 
-const ChartAnalyzerPage = () => {
+const ChartAnalyzerPage = ({ user }) => {
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [analysis, setAnalysis] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const fileInputRef = useRef(null);
+    const [history, setHistory] = useState([]);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+
+    useEffect(() => {
+        if (!user) return;
+        const historyCollectionPath = `users/${user.uid}/chart_analyses`;
+        const q = query(collection(db, historyCollectionPath), orderBy("timestamp", "desc"));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const historyData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setHistory(historyData);
+            setIsHistoryLoading(false);
+        }, (err) => {
+            console.error("Error fetching analysis history:", err);
+            setError("Could not load analysis history.");
+            setIsHistoryLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
 
     const fileToBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -579,12 +599,17 @@ const ChartAnalyzerPage = () => {
     };
 
     const handleAnalyze = async () => {
-        if (!imageFile) return;
+        if (!imageFile || !user) return;
         setIsLoading(true);
         setError('');
         setAnalysis(null);
 
         try {
+            // Step 1: Upload image to storage to get a permanent URL
+            const storageRef = ref(storage, `chart_analyses/${user.uid}/${Date.now()}_${imageFile.name}`);
+            await uploadBytes(storageRef, imageFile);
+            const imageUrl = await getDownloadURL(storageRef);
+            
             const base64Image = await fileToBase64(imageFile);
             
             const systemInstruction = `You are an expert technical analyst for financial markets. Analyze the provided chart image and return a JSON object with your findings.
@@ -646,13 +671,34 @@ Provide a concise rationale for each point. This is for educational purposes ONL
                 throw new Error("Invalid response from AI.");
             }
 
-            setAnalysis(JSON.parse(text));
+            const parsedAnalysis = JSON.parse(text);
+            setAnalysis(parsedAnalysis);
+
+            // Step 2: Save the analysis to Firestore
+            const historyCollectionPath = `users/${user.uid}/chart_analyses`;
+            await addDoc(collection(db, historyCollectionPath), {
+                userId: user.uid,
+                timestamp: Timestamp.now(),
+                imageUrl: imageUrl, // Save the storage URL
+                analysis: parsedAnalysis, // Save the parsed JSON analysis
+                outcome: 'pending' // Initial outcome
+            });
 
         } catch (err) {
             console.error("Analysis failed:", err);
             setError(`Analysis failed. ${err.message}. Please try a clearer chart image or try again later.`);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleUpdateOutcome = async (id, newOutcome) => {
+        if (!user) return;
+        const docRef = doc(db, `users/${user.uid}/chart_analyses`, id);
+        try {
+            await updateDoc(docRef, { outcome: newOutcome });
+        } catch (error) {
+            console.error("Error updating outcome: ", error);
         }
     };
 
@@ -749,6 +795,45 @@ Provide a concise rationale for each point. This is for educational purposes ONL
                     </div>
                 </div>
             )}
+
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                <h2 className="text-2xl font-bold mb-4">Analysis History</h2>
+                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                    {isHistoryLoading ? (
+                        <p className="text-center text-gray-500 py-4">Loading history...</p>
+                    ) : history.length === 0 ? (
+                        <p className="text-gray-500 dark:text-gray-400 text-center py-4">No analyses saved yet.</p>
+                    ) : (
+                        history.map(item => (
+                            <div key={item.id} className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div className="flex items-start gap-4">
+                                    <img src={item.imageUrl} alt="Chart thumbnail" className="w-20 h-20 object-cover rounded-md flex-shrink-0 border border-gray-200 dark:border-gray-600" />
+                                    <div>
+                                        <p className="text-xs text-gray-400">{item.timestamp.toDate().toLocaleString()}</p>
+                                        <p className="font-bold">
+                                            Sentiment: <span className={item.analysis.sentiment === 'Bullish' ? 'text-green-500' : 'text-red-500'}>{item.analysis.sentiment}</span>
+                                        </p>
+                                        <p className="text-sm">Entry: {item.analysis.entry}</p>
+                                        <p className="text-sm">TP: {item.analysis.takeProfit} | SL: {item.analysis.stopLoss}</p>
+                                    </div>
+                                </div>
+                                <div className="flex-shrink-0 flex sm:flex-col gap-2 w-full sm:w-auto">
+                                    {item.outcome === 'pending' ? (
+                                        <>
+                                            <button onClick={() => handleUpdateOutcome(item.id, 'tp_hit')} className="w-full text-xs font-semibold py-1 px-3 rounded bg-green-200 text-green-800 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/80 transition">Hit TP</button>
+                                            <button onClick={() => handleUpdateOutcome(item.id, 'sl_hit')} className="w-full text-xs font-semibold py-1 px-3 rounded bg-red-200 text-red-800 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition">Hit SL</button>
+                                        </>
+                                    ) : (
+                                        <div className={`text-center font-bold text-sm py-1 px-3 rounded ${item.outcome === 'tp_hit' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                                            {item.outcome === 'tp_hit' ? 'TP Hit' : 'SL Hit'}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
@@ -3381,9 +3466,9 @@ Keep each section concise and to the point. Do not add any other sections or int
           )}
           
           {activeTab === 'Chart Analyzer' && (
-            <ChartAnalyzerPage />
+            <ChartAnalyzerPage user={user} />
           )}
-
+          
           {activeTab === 'Community' && (
             <CommunityPage user={user} profileData={profileData} />
           )}
@@ -3606,6 +3691,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
 
 
 
