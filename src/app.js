@@ -601,10 +601,15 @@ const AnalysisDetailModal = ({ item, onClose, onUpdateOutcome }) => {
                                     <>
                                         <button onClick={() => { onUpdateOutcome(item.id, 'tp_hit'); onClose(); }} className="w-full font-semibold py-2 px-3 rounded bg-green-200 text-green-800 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/80 transition">Hit TP</button>
                                         <button onClick={() => { onUpdateOutcome(item.id, 'sl_hit'); onClose(); }} className="w-full font-semibold py-2 px-3 rounded bg-red-200 text-red-800 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition">Hit SL</button>
+                                        <button onClick={() => { onUpdateOutcome(item.id, 'not_taken'); onClose(); }} className="w-full font-semibold py-2 px-3 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 transition">Not Taken</button>
                                     </>
                                 ) : (
-                                    <div className={`text-center w-full font-bold py-2 px-3 rounded ${item.outcome === 'tp_hit' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                                        {item.outcome === 'tp_hit' ? 'TP Hit' : 'SL Hit'}
+                                    <div className={`text-center w-full font-bold py-2 px-3 rounded ${
+                                        item.outcome === 'tp_hit' ? 'bg-green-500/20 text-green-500' : 
+                                        item.outcome === 'sl_hit' ? 'bg-red-500/20 text-red-500' :
+                                        'bg-gray-500/20 text-gray-500'
+                                    }`}>
+                                        {item.outcome === 'tp_hit' ? 'TP Hit' : item.outcome === 'sl_hit' ? 'SL Hit' : 'Order Not Taken'}
                                     </div>
                                 )}
                             </div>
@@ -892,12 +897,17 @@ Provide a concise rationale for each point. This is for educational purposes ONL
                                 <div className="flex-shrink-0 flex sm:flex-col gap-2 w-full sm:w-auto">
                                     {item.outcome === 'pending' ? (
                                         <>
-                                            <button onClick={() => handleUpdateOutcome(item.id, 'tp_hit')} className="w-full text-xs font-semibold py-1 px-3 rounded bg-green-200 text-green-800 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/80 transition">Hit TP</button>
-                                            <button onClick={() => handleUpdateOutcome(item.id, 'sl_hit')} className="w-full text-xs font-semibold py-1 px-3 rounded bg-red-200 text-red-800 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition">Hit SL</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleUpdateOutcome(item.id, 'tp_hit'); }} className="w-full text-xs font-semibold py-1 px-3 rounded bg-green-200 text-green-800 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/80 transition">Hit TP</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleUpdateOutcome(item.id, 'sl_hit'); }} className="w-full text-xs font-semibold py-1 px-3 rounded bg-red-200 text-red-800 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition">Hit SL</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleUpdateOutcome(item.id, 'not_taken'); }} className="w-full text-xs font-semibold py-1 px-3 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 transition">Not Taken</button>
                                         </>
                                     ) : (
-                                        <div className={`text-center font-bold text-sm py-1 px-3 rounded ${item.outcome === 'tp_hit' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                                            {item.outcome === 'tp_hit' ? 'TP Hit' : 'SL Hit'}
+                                        <div className={`text-center font-bold text-sm py-1 px-3 rounded ${
+                                            item.outcome === 'tp_hit' ? 'bg-green-500/20 text-green-500' : 
+                                            item.outcome === 'sl_hit' ? 'bg-red-500/20 text-red-500' :
+                                            'bg-gray-500/20 text-gray-500'
+                                        }`}>
+                                            {item.outcome === 'tp_hit' ? 'TP Hit' : item.outcome === 'sl_hit' ? 'SL Hit' : 'Not Taken'}
                                         </div>
                                     )}
                                 </div>
@@ -3771,6 +3781,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
 
 
 
