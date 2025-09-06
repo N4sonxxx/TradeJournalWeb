@@ -549,6 +549,73 @@ const PostItem = ({ post, user, profileData }) => {
     );
 };
 
+const AnalysisDetailModal = ({ item, onClose, onUpdateOutcome }) => {
+    if (!item) return null;
+
+    const AnalysisCard = ({ title, value, icon, colorClass }) => (
+        <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg">
+            <div className={`flex items-center text-sm font-bold ${colorClass}`}>
+                {icon}
+                <h4 className="ml-2 uppercase tracking-wider">{title}</h4>
+            </div>
+            <p className="mt-2 text-xl font-mono">{value}</p>
+        </div>
+    );
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-white z-10">
+                    <CloseIcon className="w-6 h-6"/>
+                </button>
+                <h2 className="text-2xl font-bold mb-4">Analysis Details</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Image Column */}
+                    <div>
+                         <p className="text-xs text-gray-400 mb-2">{item.timestamp.toDate().toLocaleString()}</p>
+                         <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                            <img src={item.imageUrl} alt="Analyzed chart" className="w-full h-auto object-contain bg-gray-100 dark:bg-gray-900"/>
+                         </div>
+                    </div>
+                    {/* Analysis Column */}
+                    <div className="space-y-4">
+                         <AnalysisCard 
+                            title="Sentiment"
+                            value={item.analysis.sentiment}
+                            icon={item.analysis.sentiment === 'Bullish' ? <BullIcon className="w-6 h-6"/> : <BearIcon className="w-6 h-6"/>}
+                            colorClass={item.analysis.sentiment === 'Bullish' ? 'text-green-500' : 'text-red-500'}
+                        />
+                        <div className="p-4 rounded-lg bg-gray-100 dark:bg-gray-700/50">
+                            <p className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rationale</p>
+                            <p className="mt-2 text-sm">{item.analysis.rationale}</p>
+                        </div>
+                        <AnalysisCard title="Entry Position" value={item.analysis.entry} icon={<CheckCircleIcon className="w-6 h-6"/>} colorClass="text-blue-500" />
+                        <AnalysisCard title="Stop Loss" value={item.analysis.stopLoss} icon={<XCircleIcon className="w-6 h-6"/>} colorClass="text-orange-500" />
+                        <AnalysisCard title="Take Profit" value={item.analysis.takeProfit} icon={<TargetIcon className="w-6 h-6"/>} colorClass="text-purple-500" />
+
+                        {/* Outcome Section */}
+                        <div className="pt-4">
+                             <h4 className="font-bold text-lg mb-2">Outcome</h4>
+                             <div className="flex-shrink-0 flex gap-2 w-full">
+                                {item.outcome === 'pending' ? (
+                                    <>
+                                        <button onClick={() => { onUpdateOutcome(item.id, 'tp_hit'); onClose(); }} className="w-full font-semibold py-2 px-3 rounded bg-green-200 text-green-800 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/80 transition">Hit TP</button>
+                                        <button onClick={() => { onUpdateOutcome(item.id, 'sl_hit'); onClose(); }} className="w-full font-semibold py-2 px-3 rounded bg-red-200 text-red-800 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition">Hit SL</button>
+                                    </>
+                                ) : (
+                                    <div className={`text-center w-full font-bold py-2 px-3 rounded ${item.outcome === 'tp_hit' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                                        {item.outcome === 'tp_hit' ? 'TP Hit' : 'SL Hit'}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const ChartAnalyzerPage = ({ user }) => {
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
@@ -558,6 +625,7 @@ const ChartAnalyzerPage = ({ user }) => {
     const fileInputRef = useRef(null);
     const [history, setHistory] = useState([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+    const [selectedHistory, setSelectedHistory] = useState(null);
 
     useEffect(() => {
         if (!user) return;
@@ -805,7 +873,11 @@ Provide a concise rationale for each point. This is for educational purposes ONL
                         <p className="text-gray-500 dark:text-gray-400 text-center py-4">No analyses saved yet.</p>
                     ) : (
                         history.map(item => (
-                            <div key={item.id} className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div 
+                                key={item.id} 
+                                className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                                onClick={() => setSelectedHistory(item)}
+                            >
                                 <div className="flex items-start gap-4">
                                     <img src={item.imageUrl} alt="Chart thumbnail" className="w-20 h-20 object-cover rounded-md flex-shrink-0 border border-gray-200 dark:border-gray-600" />
                                     <div>
@@ -834,6 +906,14 @@ Provide a concise rationale for each point. This is for educational purposes ONL
                     )}
                 </div>
             </div>
+
+            {selectedHistory && (
+                <AnalysisDetailModal 
+                    item={selectedHistory} 
+                    onClose={() => setSelectedHistory(null)} 
+                    onUpdateOutcome={handleUpdateOutcome} 
+                />
+            )}
         </div>
     );
 };
@@ -3691,6 +3771,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
 
 
 
