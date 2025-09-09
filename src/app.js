@@ -65,7 +65,7 @@ const auth = getAuth(app);
 const callGeminiAPI = async (userQuery, systemInstruction, useGrounding = false, jsonSchema = null) => {
     // IMPORTANT: This URL points to your secure Cloud Function.
     // Ensure it matches the one provided after you deploy `functions/index.js`.
-    const functionUrl = "https://us-central1-jurnal-trading-saya.cloudfunctions.net/callGemini";
+    const functionUrl = "https://callgemini-5ahcadjkha-uc.a.run.app"; 
 
     const backendPayload = {
         userQuery,
@@ -3786,6 +3786,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
 
 
 

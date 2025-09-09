@@ -1,8 +1,9 @@
 [
-    {
-      "origin": ["*"],
-      "method": ["GET", "PUT", "POST", "DELETE"],
-      "responseHeader": ["Content-Type"],
-      "maxAgeSeconds": 3600
-    }
-  ]
+  {
+    "origin": ["https://n4sonxxx.github.io"],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]
+
+
