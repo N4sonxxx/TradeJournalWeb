@@ -28,73 +28,69 @@ import {
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 // --- Firebase Configuration ---
-// SECURITY FIX: Replaced hardcoded keys with environment variables.
-// Create a .env file in your project's root directory for these.
 const firebaseConfig = {
-    apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-    authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.REACT_APP_FIREBASE_SENDER_ID,
-    appId: process.env.REACT_APP_FIREBASE_APP_ID,
-    measurementId: process.env.REACT_APP_MEASUREMENT_ID
+    apiKey: "AIzaSyDJTS2-XcoJCIR3OYDTE2-oqsUjorA4P-M",
+    authDomain: "jurnal-trading-saya.firebaseapp.com",
+    projectId: "jurnal-trading-saya",
+    storageBucket: "jurnal-trading-saya.firebasestorage.app",
+    messagingSenderId: "55282716936",
+    appId: "1:55282716936:web:0d631d8ada6f89c7411cbd",
+    measurementId: "G-BZ0D0MZXJV"
 };
 
 // --- Initialize Firebase Services ---
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-// SECURITY BEST PRACTICE: Ensure your Firestore Security Rules are properly configured.
-// For the 'users' collection, which contains private data, the rule MUST be:
-//
-// rules_version = '2';
-// service cloud.firestore {
-//   match /databases/{database}/documents {
-//     // Users can ONLY read and write their OWN data. This is critical.
-//     match /users/{userId}/{document=**} {
-//       allow read, write: if request.auth.uid == userId;
-//     }
-//     // Add rules for your other collections like community_feed here.
-//   }
-// }
 const storage = getStorage(app);
 const auth = getAuth(app);
 
 // --- Gemini API Helper ---
-// SECURITY FIX: This function now calls your secure backend Cloud Function.
-// The API key is no longer exposed on the client.
 const callGeminiAPI = async (userQuery, systemInstruction, useGrounding = false, jsonSchema = null) => {
-    // IMPORTANT: This URL points to your secure Cloud Function.
-    // Ensure it matches the one provided after you deploy `functions/index.js`.
-    const functionUrl = "https://callgemini-5ahcadjkha-uc.a.run.app"; 
+    const apiKey = "AIzaSyCwiCfrPq6J0deEbYewPDw5bJMgdpJxTag";
+    const model = 'gemini-2.5-flash-preview-05-20';
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const backendPayload = {
-        userQuery,
-        systemInstruction,
-        useGrounding,
-        jsonSchema
+    const payload = {
+        contents: [{ parts: [{ text: userQuery }] }],
+        systemInstruction: {
+            parts: [{ text: systemInstruction }]
+        },
     };
+
+    if (useGrounding) {
+        payload.tools = [{ "google_search": {} }];
+    }
+
+    if (jsonSchema) {
+        payload.generationConfig = {
+            responseMimeType: "application/json",
+            responseSchema: jsonSchema,
+        };
+    }
 
     let attempts = 0;
     const maxAttempts = 5;
     while (attempts < maxAttempts) {
         try {
-            const response = await fetch(functionUrl, {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(backendPayload)
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
                 const errorBody = await response.json();
-                console.error('Backend API Error:', errorBody);
+                console.error('Gemini API Error:', errorBody);
                 throw new Error(`API request failed with status ${response.status}`);
             }
 
-            const resultText = await response.text();
-            if (resultText) {
-                return resultText;
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                return candidate.content.parts[0].text;
             } else {
-                console.error("Unexpected API response structure:", resultText);
+                console.error("Unexpected API response structure:", result);
                 throw new Error('Invalid response structure from API.');
             }
         } catch (error) {
@@ -711,8 +707,7 @@ Provide a concise rationale for each point. This is for educational purposes ONL
             };
             
             // This is a vision call, so we construct the payload with text and image data.
-            // SECURITY FIX: This call now goes to your secure 'analyzeChart' Cloud Function.
-            const visionPayload = {
+            const payload = {
                 contents: [{
                     parts: [
                         { text: userQuery },
@@ -726,25 +721,26 @@ Provide a concise rationale for each point. This is for educational purposes ONL
                 },
             };
 
-            // IMPORTANT: Replace this URL with your actual Cloud Function URL.
-            // It will look like: https://analyzechart-your-project-id.a.run.app
-            const functionUrl = "https://analyzechart-5ahcadjkha-uc.a.run.app"; 
+            const apiKey = "AIzaSyCwiCfrPq6J0deEbYewPDw5bJMgdpJxTag";
+            const model = 'gemini-2.5-flash-preview-05-20';
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-            const response = await fetch(functionUrl, {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(visionPayload)
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
                 const errorBody = await response.json();
-                console.error('Backend Vision API Error:', errorBody);
+                console.error('Gemini Vision API Error:', errorBody);
                 throw new Error(`API error: ${response.statusText}`);
             }
 
-            const text = await response.text();
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!text) {
-                console.error("Unexpected Vision API response structure:", text);
+                console.error("Unexpected Vision API response structure:", result);
                 throw new Error("Invalid response from AI.");
             }
 
@@ -1178,8 +1174,10 @@ const GeminiChatbot = ({ transactions }) => {
 
     useEffect(scrollToBottom, [messages]);
 
-    // SECURITY FIX: Removed formatMessageText function to prevent XSS.
-    // We will now render text safely to prevent Cross-Site Scripting (XSS).
+    const formatMessageText = (text) => {
+        const bolded = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        return bolded.replace(/\n/g, '<br />');
+    };
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
@@ -1265,9 +1263,7 @@ My Question:
                                 <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : ''}`}>
                                     {msg.role === 'model' && <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-teal-500 flex-shrink-0"></div>}
                                     <div className={`max-w-xs md:max-w-sm px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-200 dark:bg-gray-700 rounded-bl-none'}`}>
-                                        {/* SECURITY FIX: Replaced dangerouslySetInnerHTML with safe text rendering.
-                                            The `whitespace-pre-wrap` class handles newlines correctly. */}
-                                        <p className="text-sm prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">{msg.text}</p>
+                                        <p className="text-sm prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: formatMessageText(msg.text) }}></p>
                                     </div>
                                 </div>
                             ))}
@@ -1774,8 +1770,7 @@ const TradeDetailModal = ({ trade, user, allTags, onAddNewTag, onSave, onCancel 
                                 {aiAnalysis && (
                                     <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 mt-2">
                                         <h4 className="font-bold text-md mb-2 text-gray-800 dark:text-gray-200 flex items-center"><MagicWandIcon className="w-5 h-5 mr-2 text-purple-500"/> AI Coach Feedback</h4>
-                                        {/* SECURITY FIX: Replaced `dangerouslySetInnerHTML` with a safe div that respects line breaks. */}
-                                        <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">{aiAnalysis}</div>
+                                        <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: aiAnalysis.replace(/\n/g, '<br />') }} />
                                     </div>
                                 )}
                             </div>
@@ -3786,9 +3781,6 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
-
-
-
 
 
 
