@@ -1,75 +1,90 @@
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-const cors = require("cors")({origin: true});
-const nodemailer = require("nodemailer");
+// functions/index.js
 
-admin.initializeApp();
+const { onRequest } = require("firebase-functions/v2/https");
+const { setGlobalOptions } = require("firebase-functions/v2");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const cors = require("cors")({ origin: true });
+
+// Set global options for all functions
+setGlobalOptions({ region: "us-central1" });
+
+// Initialize the Gemini AI client.
+// CRITICAL: Your Gemini API key must be set as a secret in your Firebase environment.
+// Run this command in your terminal from your project directory:
+// firebase functions:secrets:set GEMINI_KEY
+// Then, when prompted, paste your secret Gemini API key.
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 
 /**
- * Sends a verification email using Nodemailer.
- * NOTE: Transporter is initialized inside the function for resilience.
+ * Handles standard text generation requests from the frontend.
  */
-exports.sendVerificationEmail = functions.https.onRequest((req, res) => {
-  cors(req, res, async () => {
-    // Initialize config and transporter inside the function request.
-    // This prevents container startup errors if config is not yet available.
-    const gmailEmail = functions.config().gmail.email;
-    const gmailPassword = functions.config().gmail.password;
-
-    if (!gmailEmail || !gmailPassword) {
-      const errorMsg = "Gmail credentials are not configured on the server.";
-      console.error("Configuration Error:", errorMsg);
-      const serverError = "Server configuration error. Contact support.";
-      return res.status(500).json({success: false, error: serverError});
+exports.callGemini = onRequest(async (request, response) => {
+  cors(request, response, async () => {
+    if (request.method !== "POST") {
+      return response.status(405).send("Method Not Allowed");
     }
-
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: gmailEmail,
-        pass: gmailPassword,
-      },
-    });
-
-    if (req.method !== "POST") {
-      return res.status(405).send("Method Not Allowed");
-    }
-
-    const {email, code} = req.body;
-
-    if (!email || !code) {
-      const errorMsg = "Email and code are required.";
-      return res.status(400).json({success: false, error: errorMsg});
-    }
-
-    const mailOptions = {
-      from: `"Trading Journal" <${gmailEmail}>`,
-      to: email,
-      subject: "Your Trading Journal Verification Code",
-      html: `
-        <div
-          style="font-family: sans-serif; text-align: center; padding: 20px;"
-        >
-          <h2>Welcome to Your Trading Journal!</h2>
-          <p>Here is your 4-digit verification code:</p>
-          <p
-            style="font-size: 36px; font-weight: bold; letter-spacing: 8px;"
-          >
-            ${code}
-          </p>
-          <p>Enter this code to complete your sign-up.</p>
-        </div>
-      `,
-    };
 
     try {
-      await transporter.sendMail(mailOptions);
-      return res.status(200).json({success: true});
+      const { userQuery, systemInstruction, useGrounding, jsonSchema } = request.body;
+      if (!userQuery) {
+        return response.status(400).json({ error: "userQuery is required." });
+      }
+
+      // Using the same modern model as your frontend for consistency
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-preview-05-20" });
+
+      const generationConfig = {
+        responseMimeType: jsonSchema ? "application/json" : "text/plain",
+        responseSchema: jsonSchema || undefined,
+      };
+
+      const tools = useGrounding ? [{ "google_search": {} }] : [];
+
+      const result = await model.generateContent({
+        contents: [{ parts: [{ text: userQuery }] }],
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        generationConfig,
+        tools,
+      });
+
+      // Extract only the text and send it back, as the frontend expects.
+      const text = result.response.candidates[0].content.parts[0].text;
+      response.status(200).send(text);
+
     } catch (error) {
-      console.error("Nodemailer Error:", error.toString());
-      const errorMsg = "Failed to send email.";
-      return res.status(500).json({success: false, error: errorMsg});
+      console.error("Error calling Gemini API:", error);
+      response.status(500).json({ error: "Failed to call Gemini API." });
     }
   });
 });
 
+/**
+ * Handles image analysis (vision) requests from the frontend.
+ */
+exports.analyzeChart = onRequest({ timeoutSeconds: 300, memory: "1GiB" }, async (request, response) => {
+    cors(request, response, async () => {
+      if (request.method !== "POST") {
+        return response.status(405).send("Method Not Allowed");
+      }
+
+      try {
+        const payload = request.body;
+        if (!payload || !payload.contents) {
+          return response.status(400).json({ error: "Invalid payload provided." });
+        }
+        
+        // Use the modern vision-capable model
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-preview-05-20" });
+        const result = await model.generateContent(payload);
+
+        // Extract just the text part (which contains the JSON) and send it back.
+        const text = result.response.candidates[0].content.parts[0].text;
+        response.status(200).send(text);
+
+      } catch (error) {
+        console.error("Error calling Gemini Vision API:", error);
+        response.status(500).json({ error: "Failed to call Gemini Vision API." });
+      }
+    });
+  },
+);
