@@ -631,6 +631,7 @@ const ChartAnalyzerPage = ({ user }) => {
     const [history, setHistory] = useState([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(true);
     const [selectedHistory, setSelectedHistory] = useState(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
     useEffect(() => {
         if (!user) return;
@@ -775,6 +776,32 @@ Provide a concise rationale for each point. This is for educational purposes ONL
         }
     };
 
+    const handleDeleteAnalysis = async (itemToDelete) => {
+        if (!user || !itemToDelete) return;
+        try {
+            if (itemToDelete.imageUrl) {
+                const imageRef = ref(storage, itemToDelete.imageUrl);
+                await deleteObject(imageRef);
+            }
+            const docRef = doc(db, `users/${user.uid}/chart_analyses`, itemToDelete.id);
+            await deleteDoc(docRef);
+        } catch (error) {
+            if (error.code !== 'storage/object-not-found') {
+                console.error("Error deleting analysis:", error);
+                setError("Failed to delete the analysis. Please try again.");
+            } else {
+                 try {
+                    const docRef = doc(db, `users/${user.uid}/chart_analyses`, itemToDelete.id);
+                    await deleteDoc(docRef);
+                 } catch(e) {
+                     console.error("Error deleting firestore doc after storage error:", e);
+                 }
+            }
+        } finally {
+            setShowDeleteConfirm(null);
+        }
+    };
+
     const AnalysisCard = ({ title, value, icon, colorClass }) => (
         <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
             <div className={`flex items-center text-sm font-bold ${colorClass}`}>
@@ -787,6 +814,13 @@ Provide a concise rationale for each point. This is for educational purposes ONL
 
     return (
         <div className="space-y-8 max-w-4xl mx-auto">
+            <ConfirmationModal
+                isOpen={!!showDeleteConfirm}
+                title="Delete Analysis"
+                message="Are you sure you want to permanently delete this analysis and its chart image? This action cannot be undone."
+                onConfirm={() => handleDeleteAnalysis(showDeleteConfirm)}
+                onCancel={() => setShowDeleteConfirm(null)}
+            />
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md text-center">
                 <h2 className="text-3xl font-bold mb-2">AI Chart Analyzer</h2>
                 <p className="text-gray-500 dark:text-gray-400">Upload a chart image to get an AI-powered technical analysis.</p>
@@ -880,25 +914,36 @@ Provide a concise rationale for each point. This is for educational purposes ONL
                         history.map(item => (
                             <div 
                                 key={item.id} 
-                                className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-                                onClick={() => setSelectedHistory(item)}
+                                className="relative group"
                             >
-                                <div className="flex items-start gap-4">
-                                    <img src={item.imageUrl} alt="Chart thumbnail" className="w-20 h-20 object-cover rounded-md flex-shrink-0 border border-gray-200 dark:border-gray-600" />
-                                    <div>
-                                        <p className="text-xs text-gray-400">{item.timestamp.toDate().toLocaleString()}</p>
-                                        <p className="font-bold">
-                                            Sentiment: <span className={item.analysis.sentiment === 'Bullish' ? 'text-green-500' : 'text-red-500'}>{item.analysis.sentiment}</span>
-                                        </p>
-                                        <p className="text-sm">Entry: {item.analysis.entry}</p>
-                                        <p className="text-sm">TP: {item.analysis.takeProfit} | SL: {item.analysis.stopLoss}</p>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowDeleteConfirm(item);
+                                    }}
+                                    className="absolute top-2 left-2 z-10 p-1 bg-gray-600 bg-opacity-50 text-white rounded-full hover:bg-red-500 transition-all opacity-0 group-hover:opacity-100"
+                                    title="Delete Analysis"
+                                >
+                                    <CloseIcon className="w-4 h-4" />
+                                </button>
+                                <div 
+                                    onClick={() => setSelectedHistory(item)}
+                                    className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                                >
+                                    <div className="flex items-start gap-4">
+                                        <img src={item.imageUrl} alt="Chart thumbnail" className="w-20 h-20 object-cover rounded-md flex-shrink-0 border border-gray-200 dark:border-gray-600" />
+                                        <div>
+                                            <p className="font-bold">{new Date(item.timestamp.toDate()).toLocaleDateString()}</p>
+                                            <div className="flex items-center text-sm mt-1">
+                                                <span className={`font-semibold ${item.analysis.sentiment === 'Bullish' ? 'text-green-500' : 'text-red-500'}`}>{item.analysis.sentiment}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex-shrink-0 flex sm:flex-col gap-2 w-full sm:w-auto">
+                                    <div className="flex-shrink-0 w-32 text-right">
                                     {item.outcome === 'pending' ? (
                                         <>
-                                            <button onClick={(e) => { e.stopPropagation(); handleUpdateOutcome(item.id, 'tp_hit'); }} className="w-full text-xs font-semibold py-1 px-3 rounded bg-green-200 text-green-800 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/80 transition">Hit TP</button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleUpdateOutcome(item.id, 'sl_hit'); }} className="w-full text-xs font-semibold py-1 px-3 rounded bg-red-200 text-red-800 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition">Hit SL</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleUpdateOutcome(item.id, 'tp_hit'); }} className="w-full mb-1 text-xs font-semibold py-1 px-3 rounded bg-green-200 text-green-800 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/80 transition">Hit TP</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleUpdateOutcome(item.id, 'sl_hit'); }} className="w-full mb-1 text-xs font-semibold py-1 px-3 rounded bg-red-200 text-red-800 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition">Hit SL</button>
                                             <button onClick={(e) => { e.stopPropagation(); handleUpdateOutcome(item.id, 'not_taken'); }} className="w-full text-xs font-semibold py-1 px-3 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 transition">Not Taken</button>
                                         </>
                                     ) : (
@@ -910,6 +955,7 @@ Provide a concise rationale for each point. This is for educational purposes ONL
                                             {item.outcome === 'tp_hit' ? 'TP Hit' : item.outcome === 'sl_hit' ? 'SL Hit' : 'Not Taken'}
                                         </div>
                                     )}
+                                </div>
                                 </div>
                             </div>
                         ))
@@ -3781,6 +3827,8 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
+
 
 
 
