@@ -3410,7 +3410,7 @@ Keep each section concise and to the point. Do not add any other sections or int
 
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white min-h-screen font-sans p-4 sm:p-6 lg:p-8 transition-colors duration-300">
+    <div className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white min-h-screen font-sans p-4 sm:p-6 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         <header className="mb-8 flex justify-between items-center">
           <div className="flex items-center space-x-4">
@@ -3418,22 +3418,26 @@ Keep each section concise and to the point. Do not add any other sections or int
                 <UserIcon className="w-6 h-6" />
             </button>
             <div>
-              <h1 className="text-4xl font-bold">Trading Journal</h1>
+              <h1 className="text-3xl sm:text-4xl font-bold">Trading Journal</h1>
               <p className="text-gray-500 dark:text-gray-400 mt-1">{profileData.displayName || user.email}</p>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">{theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}</button>
             <button onClick={handleLogout} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"><LogOutIcon className="w-6 h-6" /></button>
           </div>
         </header>
 
-        <nav className="mb-8 flex space-x-2 border-b border-gray-200 dark:border-gray-700 pb-2">
-          <TabButton tabName="Dashboard" />
-          <TabButton tabName="Journal" />
-          <TabButton tabName="Analytics" />
-          <TabButton tabName="Chart Analyzer" />
-          <TabButton tabName="Community" />
+        <nav className="mb-8">
+            <div className="border-b border-gray-200 dark:border-gray-700">
+                <div className="-mb-px flex space-x-2 overflow-x-auto whitespace-nowrap pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
+                    <TabButton tabName="Dashboard" />
+                    <TabButton tabName="Journal" />
+                    <TabButton tabName="Analytics" />
+                    <TabButton tabName="Chart Analyzer" />
+                    <TabButton tabName="Community" />
+                </div>
+            </div>
         </nav>
 
         <main>
@@ -3550,18 +3554,18 @@ Keep each section concise and to the point. Do not add any other sections or int
                       </div>
                   </div>
                   <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                      <thead><tr className="border-b border-gray-200 dark:border-gray-700"><th className="p-3 text-sm font-semibold">Details</th><th className="p-3 text-sm font-semibold cursor-pointer" onClick={() => requestSort('date')}>Date ⇅</th><th className="p-3 text-sm font-semibold">Type</th><th className="p-3 text-sm font-semibold">Status</th><th className="p-3 text-sm font-semibold cursor-pointer" onClick={() => requestSort('pnl')}>Amount ⇅</th><th className="p-3 text-sm font-semibold">Actions</th></tr></thead>
+                  <table className="w-full text-left text-sm">
+                      <thead><tr className="border-b border-gray-200 dark:border-gray-700"><th className="p-2 sm:p-3 font-semibold">Details</th><th className="p-2 sm:p-3 font-semibold cursor-pointer" onClick={() => requestSort('date')}>Date ⇅</th><th className="p-2 sm:p-3 font-semibold">Type</th><th className="p-2 sm:p-3 font-semibold">Status</th><th className="p-2 sm:p-3 font-semibold cursor-pointer" onClick={() => requestSort('pnl')}>Amount ⇅</th><th className="p-2 sm:p-3 font-semibold">Actions</th></tr></thead>
                       <tbody>
                       {loading ? ( <tr><td colSpan="6" className="text-center p-8">Loading data...</td></tr> ) : paginatedTransactions.length > 0 ? (
                           paginatedTransactions.map(tx => (
                           <tr key={tx.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setViewingTrade(tx)}>
-                              <td className="p-3 text-center">{ (tx.notes || (tx.tags && tx.tags.length > 0) || tx.rating > 0 || tx.imageUrl) && <NoteIcon className="w-5 h-5 text-blue-500 mx-auto"/> }</td>
-                              <td className="p-3">{tx.date.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
-                              <td className={`p-3 font-semibold ${tx.type === 'Buy' ? 'text-green-500' : tx.type === 'Sell' ? 'text-red-500' : tx.type === 'Deposit' ? 'text-blue-500' : 'text-orange-500'}`}>{tx.type}</td>
-                              <td className={`p-3 font-semibold ${tx.status === 'Win' ? 'text-green-500' : tx.status === 'Loss' ? 'text-red-500' : ''}`}>{tx.status || '-'}</td>
-                              <td className={`p-3 font-semibold ${tx.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</td>
-                              <td className="p-3"><button onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id, tx.imageUrl); }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button></td>
+                              <td className="p-2 sm:p-3 text-center">{ (tx.notes || (tx.tags && tx.tags.length > 0) || tx.rating > 0 || tx.imageUrl) && <NoteIcon className="w-5 h-5 text-blue-500 mx-auto"/> }</td>
+                              <td className="p-2 sm:p-3 whitespace-nowrap">{tx.date.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                              <td className={`p-2 sm:p-3 font-semibold ${tx.type === 'Buy' ? 'text-green-500' : tx.type === 'Sell' ? 'text-red-500' : tx.type === 'Deposit' ? 'text-blue-500' : 'text-orange-500'}`}>{tx.type}</td>
+                              <td className={`p-2 sm:p-3 font-semibold ${tx.status === 'Win' ? 'text-green-500' : tx.status === 'Loss' ? 'text-red-500' : ''}`}>{tx.status || '-'}</td>
+                              <td className={`p-2 sm:p-3 font-semibold whitespace-nowrap ${tx.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.pnl)}</td>
+                              <td className="p-2 sm:p-3"><button onClick={(e) => { e.stopPropagation(); deleteTransaction(tx.id, tx.imageUrl); }} className="text-gray-500 hover:text-red-500 transition"><TrashIcon className="w-5 h-5" /></button></td>
                           </tr>
                           ))
                       ) : (<tr><td colSpan="6" className="text-center p-8">No matching data found.</td></tr>)}
@@ -3827,6 +3831,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
 
 
 
