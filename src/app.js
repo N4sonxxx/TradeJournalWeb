@@ -3694,7 +3694,6 @@ const ForgotPasswordModal = ({ onCancel }) => {
 
 // --- Authentication Page Component ---
 function AuthPage() {
-    const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -3704,16 +3703,10 @@ function AuthPage() {
         e.preventDefault();
         setError('');
         try {
-            if (isLogin) {
-                await signInWithEmailAndPassword(auth, email, password);
-            } else {
-                await createUserWithEmailAndPassword(auth, email, password);
-            }
+            await signInWithEmailAndPassword(auth, email, password);
         } catch (err) {
             if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
                 setError('Wrong email or password.');
-            } else if (err.code === 'auth/email-already-in-use') {
-                setError('This email address is already in use.');
             } else {
                 setError('An error occurred. Please try again.');
                 console.error("Authentication error:", err);
@@ -3727,7 +3720,7 @@ function AuthPage() {
                 <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
                     <div>
                         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-                            {isLogin ? 'Sign in to your account' : 'Create a new account'}
+                            Sign in to your account
                         </h2>
                     </div>
                     <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -3762,19 +3755,17 @@ function AuthPage() {
                             </div>
                         </div>
 
-                        {isLogin && (
-                             <div className="flex items-center justify-end">
-                                <div className="text-sm">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsForgotPasswordOpen(true)}
-                                        className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
-                                    >
-                                        Forgot your password?
-                                    </button>
-                                </div>
+                        <div className="flex items-center justify-end">
+                            <div className="text-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsForgotPasswordOpen(true)}
+                                    className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                >
+                                    Forgot your password?
+                                </button>
                             </div>
-                        )}
+                        </div>
 
                         {error && <p className="text-sm text-red-500 text-center">{error}</p>}
 
@@ -3783,15 +3774,10 @@ function AuthPage() {
                                 type="submit"
                                 className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                             >
-                                {isLogin ? 'Sign in' : 'Register'}
+                                Sign in
                             </button>
                         </div>
                     </form>
-                    <div className="text-sm text-center">
-                        <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
-                            {isLogin ? 'Need an account? Register now' : 'Have an account? Sign in'}
-                        </button>
-                    </div>
                 </div>
             </div>
             {isForgotPasswordOpen && <ForgotPasswordModal onCancel={() => setIsForgotPasswordOpen(false)} />}
@@ -3831,6 +3817,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
 }
+
 
 
 
