@@ -230,18 +230,6 @@ const LandingPage = ({ onEnter, theme, setTheme }) => {
                         <button onClick={onEnter} className="mt-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-full text-lg transition-transform transform hover:scale-105">
                             Get Started Now
                         </button>
-                        <div className="mt-12 lg:mt-16">
-                            <video 
-                                className="w-full max-w-4xl mx-auto rounded-lg shadow-2xl" 
-                                autoPlay 
-                                loop 
-                                muted 
-                                playsInline
-                                src="/Robot_Assisted_Trading_Happiness.mp4"
-                            >
-                                Your browser does not support the video tag.
-                            </video>
-                        </div>
                     </AnimatedSection>
                 </section>
 
@@ -4039,10 +4027,5 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} theme={theme} setTheme={setTheme} /> : <AuthPage onShowLanding={handleShowLanding} />;
 }
-
-
-
-
-
 
 
