@@ -205,7 +205,7 @@ const LandingPage = ({ onEnter, theme, setTheme }) => {
                     <div className="flex justify-between items-center py-4 border-b border-gray-200 dark:border-gray-800">
                         <div className="flex items-center space-x-2">
                             <TargetIcon className="w-8 h-8 text-blue-600 dark:text-blue-500" />
-                            <span className="text-xl font-bold">TradeJournal AI</span>
+                            <span className="text-xl font-bold">Spotter Trade AI</span>
                         </div>
                         <div className="flex items-center space-x-4">
                             <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition">{theme === 'light' ? <MoonIcon className="w-5 h-5" /> : <SunIcon className="w-5 h-5" />}</button>
@@ -4027,4 +4027,5 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} theme={theme} setTheme={setTheme} /> : <AuthPage onShowLanding={handleShowLanding} />;
 }
+
 
