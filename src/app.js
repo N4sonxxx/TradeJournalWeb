@@ -140,6 +140,7 @@ const ThumbsUpIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/20
 const ThumbsDownIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 14V2"></path><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"></path></svg>;
 const MoreVerticalIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>;
 const EditIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
+const BarChartIcon = ({ className }) => <svg xmlns="http://www.w.3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>;
 
 
 // --- Components ---
@@ -156,6 +157,193 @@ const ConfirmationModal = ({ isOpen, title, message, onConfirm, onCancel, confir
                     <button onClick={onConfirm} className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">{confirmText}</button>
                 </div>
             </div>
+        </div>
+    );
+};
+
+// --- Landing Page Component ---
+const LandingPage = ({ onEnter, theme, setTheme }) => {
+    const AnimatedSection = ({ children }) => {
+        const ref = useRef(null);
+        const [isVisible, setIsVisible] = useState(false);
+
+        useEffect(() => {
+            const observer = new IntersectionObserver(
+                ([entry]) => {
+                    if (entry.isIntersecting) {
+                        setIsVisible(true);
+                        observer.unobserve(entry.target);
+                    }
+                },
+                { threshold: 0.1 }
+            );
+
+            const currentRef = ref.current;
+            if (currentRef) {
+                observer.observe(currentRef);
+            }
+
+            return () => {
+                if (currentRef) {
+                    observer.unobserve(currentRef);
+                }
+            };
+        }, []);
+
+        return (
+            <div ref={ref} className={`transition-all duration-1000 ease-in-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+                {children}
+            </div>
+        );
+    };
+
+    return (
+        <div className="bg-white dark:bg-black text-black dark:text-white min-h-screen font-sans">
+            {/* Header */}
+            <header className="sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-lg">
+                <div className="max-w-7xl mx-auto px-6 sm:px-8">
+                    <div className="flex justify-between items-center py-4 border-b border-gray-200 dark:border-gray-800">
+                        <div className="flex items-center space-x-2">
+                            <TargetIcon className="w-8 h-8 text-blue-600 dark:text-blue-500" />
+                            <span className="text-xl font-bold">TradeJournal AI</span>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition">{theme === 'light' ? <MoonIcon className="w-5 h-5" /> : <SunIcon className="w-5 h-5" />}</button>
+                            <button onClick={onEnter} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm py-2 px-5 rounded-full transition-colors">
+                                Sign In
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main>
+                {/* Hero Section */}
+                <section className="text-center py-24 sm:py-32 lg:py-40 px-6">
+                    <AnimatedSection>
+                        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 dark:from-white dark:via-gray-300 dark:to-white">
+                            The Future of Trading is Here.
+                        </h1>
+                        <p className="max-w-2xl mx-auto mt-6 text-lg sm:text-xl text-gray-600 dark:text-gray-400">
+                            Elevate your trading with our intelligent journal. Log, analyze, and get personalized AI-driven insights to master the markets.
+                        </p>
+                        <button onClick={onEnter} className="mt-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-full text-lg transition-transform transform hover:scale-105">
+                            Get Started Now
+                        </button>
+                    </AnimatedSection>
+                </section>
+
+                {/* Feature Showcase 1 */}
+                <section className="py-20 sm:py-28 bg-gray-50 dark:bg-gray-900">
+                    <div className="max-w-7xl mx-auto px-6 sm:px-8">
+                        <AnimatedSection>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                                <div className="text-center md:text-left">
+                                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Journal with Intelligence</h2>
+                                    <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
+                                        Go beyond simple note-taking. Tag your setups, rate your execution, and attach chart screenshots to every trade for a complete visual record of your decisions.
+                                    </p>
+                                </div>
+                                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl">
+                                    <div className="flex items-center">
+                                        <NoteIcon className="w-10 h-10 text-blue-500" />
+                                        <h3 className="ml-4 text-xl font-semibold">Trade Log Entry</h3>
+                                    </div>
+                                    <div className="mt-4 space-y-3">
+                                        <div className="w-full h-8 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse"></div>
+                                        <div className="w-3/4 h-8 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse"></div>
+                                        <div className="flex space-x-2 mt-2">
+                                            <div className="px-3 py-1 bg-blue-200 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 rounded-full text-sm font-semibold">Breakout</div>
+                                            <div className="px-3 py-1 bg-green-200 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded-full text-sm font-semibold">5-Star</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </AnimatedSection>
+                    </div>
+                </section>
+
+                {/* Feature Showcase 2 */}
+                <section className="py-20 sm:py-28">
+                    <div className="max-w-7xl mx-auto px-6 sm:px-8">
+                        <AnimatedSection>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                                <div className="order-2 md:order-1 text-center md:text-left">
+                                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Your Personal AI Trading Coach</h2>
+                                    <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
+                                        Leverage the power of Gemini AI. Get objective feedback on your trade rationale, identify psychological biases, and receive actionable advice to improve your strategy.
+                                    </p>
+                                </div>
+                                 <div className="order-1 md:order-2 bg-gradient-to-br from-purple-500 to-indigo-600 p-8 rounded-2xl shadow-2xl text-white">
+                                    <div className="flex items-center">
+                                        <MagicWandIcon className="w-10 h-10" />
+                                        <h3 className="ml-4 text-xl font-semibold">AI Coach Feedback</h3>
+                                    </div>
+                                    <p className="mt-4 italic opacity-80">"Your entry was well-timed with the breakout, but your notes suggest a hint of FOMO. Consider waiting for a re-test on similar future setups to increase probability."</p>
+                                </div>
+                            </div>
+                        </AnimatedSection>
+                    </div>
+                </section>
+                
+                {/* Features Grid */}
+                <section className="py-20 sm:py-28 bg-gray-50 dark:bg-gray-900">
+                     <div className="max-w-7xl mx-auto px-6 sm:px-8">
+                        <AnimatedSection>
+                            <div className="text-center">
+                                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">A Full Suite of Professional Tools</h2>
+                                <p className="max-w-2xl mx-auto mt-4 text-lg text-gray-600 dark:text-gray-400">
+                                    Everything you need to analyze, improve, and connect.
+                                </p>
+                            </div>
+                        </AnimatedSection>
+                        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            <AnimatedSection>
+                                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg h-full">
+                                    <BarChartIcon className="w-10 h-10 text-green-500" />
+                                    <h3 className="mt-4 text-xl font-semibold">Advanced Analytics</h3>
+                                    <p className="mt-2 text-gray-600 dark:text-gray-400">Track key metrics like win rate, P&L by day, and strategy performance to find your edge.</p>
+                                </div>
+                            </AnimatedSection>
+                             <AnimatedSection>
+                                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg h-full">
+                                    <ImageIcon className="w-10 h-10 text-orange-500" />
+                                    <h3 className="mt-4 text-xl font-semibold">AI Chart Analyzer</h3>
+                                    <p className="mt-2 text-gray-600 dark:text-gray-400">Upload any chart screenshot and get an instant, AI-powered technical analysis with potential trade setups.</p>
+                                </div>
+                            </AnimatedSection>
+                             <AnimatedSection>
+                                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg h-full">
+                                    <UserIcon className="w-10 h-10 text-purple-500" />
+                                    <h3 className="mt-4 text-xl font-semibold">Community Feed</h3>
+                                    <p className="mt-2 text-gray-600 dark:text-gray-400">Share your insights, discuss strategies, and learn from a community of dedicated traders.</p>
+                                </div>
+                            </AnimatedSection>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Final CTA */}
+                <section className="text-center py-24 sm:py-32 lg:py-40 px-6">
+                    <AnimatedSection>
+                        <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">Stop Guessing. Start Improving.</h2>
+                        <p className="max-w-2xl mx-auto mt-6 text-lg sm:text-xl text-gray-600 dark:text-gray-400">
+                            Join today and turn your trading data into your most valuable asset. The journey to consistent profitability starts now.
+                        </p>
+                        <button onClick={onEnter} className="mt-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-full text-lg transition-transform transform hover:scale-105">
+                            Sign In & Analyze
+                        </button>
+                    </AnimatedSection>
+                </section>
+            </main>
+
+            {/* Footer */}
+            <footer className="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
+                <div className="max-w-7xl mx-auto py-12 px-6 sm:px-8 text-center text-gray-500 dark:text-gray-400">
+                    <p>&copy; {new Date().getFullYear()} TradeJournal AI. All rights reserved.</p>
+                    <p className="text-xs mt-2">This is a tool for educational purposes only and does not constitute financial advice.</p>
+                </div>
+            </footer>
         </div>
     );
 };
@@ -2680,13 +2868,12 @@ const ProfileModal = ({ user, profileData, onSave, onCancel }) => {
 };
 
 // --- Main Trading Journal Component (Refactored from App) ---
-function TradingJournal({ user, handleLogout }) {
+function TradingJournal({ user, handleLogout, theme, setTheme }) {
   const [transactions, setTransactions] = useState([]);
   const [dailyJournals, setDailyJournals] = useState({});
   const [tags, setTags] = useState([]);
   const [profileData, setProfileData] = useState({});
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('themeV12') || 'dark' : 'dark');
   const [settings, setSettings] = useState({
       startingEquity: 10000,
       dailyProfitTarget: { value: 2, unit: '%' },
@@ -2794,15 +2981,6 @@ function TradingJournal({ user, handleLogout }) {
         unsubTags();
     };
   }, [user]);
-
-  useEffect(() => {
-    if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('themeV12', theme);
-  }, [theme]);
   
   useEffect(() => {
     function handleClickOutside(event) {
@@ -3790,6 +3968,9 @@ function AuthPage() {
 export default function App() {
     const [user, setUser] = useState(null);
     const [loadingAuth, setLoadingAuth] = useState(true);
+    const [showLandingPage, setShowLandingPage] = useState(!sessionStorage.getItem('visitedLanding'));
+    const [theme, setTheme] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('themeV12') || 'dark' : 'dark');
+
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -3799,6 +3980,15 @@ export default function App() {
         return () => unsubscribe(); // Cleanup subscription on unmount
     }, []);
 
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('themeV12', theme);
+    }, [theme]);
+
     const handleLogout = async () => {
         try {
             await signOut(auth);
@@ -3806,6 +3996,15 @@ export default function App() {
             console.error("Error signing out: ", error);
         }
     };
+
+    const handleEnterApp = () => {
+        sessionStorage.setItem('visitedLanding', 'true');
+        setShowLandingPage(false);
+    };
+
+    if (showLandingPage) {
+        return <LandingPage onEnter={handleEnterApp} theme={theme} setTheme={setTheme} />;
+    }
 
     if (loadingAuth) {
         return (
@@ -3815,50 +4014,6 @@ export default function App() {
         );
     }
 
-    return user ? <TradingJournal user={user} handleLogout={handleLogout} /> : <AuthPage />;
+    return user ? <TradingJournal user={user} handleLogout={handleLogout} theme={theme} setTheme={setTheme} /> : <AuthPage />;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
