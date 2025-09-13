@@ -3871,7 +3871,7 @@ const ForgotPasswordModal = ({ onCancel }) => {
 
 
 // --- Authentication Page Component ---
-function AuthPage() {
+function AuthPage({ onShowLanding }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -3895,7 +3895,14 @@ function AuthPage() {
     return (
         <>
             <div className="bg-gray-100 dark:bg-gray-900 min-h-screen flex items-center justify-center">
-                <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-lg shadow-md relative">
+                    <button 
+                        onClick={onShowLanding} 
+                        className="absolute top-4 left-4 p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                        aria-label="Back to homepage"
+                    >
+                        <ChevronLeftIcon className="w-6 h-6" />
+                    </button>
                     <div>
                         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
                             Sign in to your account
@@ -4002,6 +4009,10 @@ export default function App() {
         setShowLandingPage(false);
     };
 
+    const handleShowLanding = () => {
+        setShowLandingPage(true);
+    };
+
     if (showLandingPage) {
         return <LandingPage onEnter={handleEnterApp} theme={theme} setTheme={setTheme} />;
     }
@@ -4014,6 +4025,6 @@ export default function App() {
         );
     }
 
-    return user ? <TradingJournal user={user} handleLogout={handleLogout} theme={theme} setTheme={setTheme} /> : <AuthPage />;
+    return user ? <TradingJournal user={user} handleLogout={handleLogout} theme={theme} setTheme={setTheme} /> : <AuthPage onShowLanding={handleShowLanding} />;
 }
 
