@@ -264,6 +264,64 @@ const InteractiveHeroBackground = memo(({ theme }) => {
 });
 
 
+// --- Community Page Widgets ---
+const TimelineWidget = memo(function TimelineWidget({ theme }) {
+    const container = useRef(null);
+    useEffect(() => {
+        if (!container.current) return;
+        const script = document.createElement("script");
+        script.src = "https://s3.tradingview.com/external-embedding/embed-widget-timeline.js";
+        script.type = "text/javascript";
+        script.async = true;
+        script.innerHTML = JSON.stringify({
+            "displayMode": "regular",
+            "feedMode": "all_symbols",
+            "colorTheme": theme,
+            "isTransparent": false,
+            "locale": "en",
+            "width": "100%",
+            "height": "100%"
+        });
+        container.current.innerHTML = '';
+        container.current.appendChild(script);
+    }, [theme]);
+
+    return (
+        <div className="tradingview-widget-container h-full">
+            <div className="tradingview-widget-container__widget" ref={container} style={{height: "100%", width: "100%"}}></div>
+        </div>
+    );
+});
+
+const EventsWidget = memo(function EventsWidget({ theme }) {
+    const container = useRef(null);
+    useEffect(() => {
+        if (!container.current) return;
+        const script = document.createElement("script");
+        script.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js";
+        script.type = "text/javascript";
+        script.async = true;
+        script.innerHTML = JSON.stringify({
+            "colorTheme": theme,
+            "isTransparent": false,
+            "locale": "en",
+            "countryFilter": "ar,au,br,ca,cn,fr,de,in,id,it,jp,kr,mx,ru,sa,za,tr,gb,us,eu",
+            "importanceFilter": "-1,0,1",
+            "width": "100%",
+            "height": "100%"
+        });
+        container.current.innerHTML = '';
+        container.current.appendChild(script);
+    }, [theme]);
+    
+    return (
+        <div className="tradingview-widget-container h-full">
+            <div className="tradingview-widget-container__widget" ref={container} style={{height: "100%", width: "100%"}}></div>
+        </div>
+    );
+});
+
+
 // --- TradingView Widget Component ---
 const TradingViewWidget = memo(function TradingViewWidget() {
     const container = useRef(null);
@@ -1381,7 +1439,7 @@ Provide a concise rationale for each point. This is for educational purposes ONL
     );
 };
 
-const CommunityPage = ({ user, profileData }) => {
+const CommunityPage = ({ user, profileData, theme }) => {
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [newPostTitle, setNewPostTitle] = useState('');
@@ -1476,89 +1534,108 @@ const CommunityPage = ({ user, profileData }) => {
     };
 
     return (
-        <div className="space-y-8">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                <h2 className="text-2xl font-bold mb-4">Create a New Post</h2>
-                <form onSubmit={handleCreatePost} className="space-y-4">
-                    <div>
-                        <label htmlFor="post-title" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
-                        <input 
-                            id="post-title"
-                            type="text"
-                            value={newPostTitle}
-                            onChange={(e) => setNewPostTitle(e.target.value)}
-                            placeholder="What's on your mind?"
-                            className="mt-1 w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="post-content" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
-                        <textarea
-                            id="post-content"
-                            rows="5"
-                            value={newPostContent}
-                            onChange={(e) => setNewPostContent(e.target.value)}
-                            placeholder="Share your thoughts, strategies, or questions with the community..."
-                            className="mt-1 w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                    </div>
-                    
-                    {/* Image Upload Section */}
-                    <div>
-                        {imagePreview && (
-                            <div className="mt-2 relative">
-                                <img src={imagePreview} alt="Image preview" className="max-h-48 rounded-md w-auto" />
-                                <button
-                                    type="button"
-                                    onClick={removeImage}
-                                    className="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-75"
-                                >
-                                    <CloseIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )}
-                        <div className="mt-2 flex items-center">
-                             <button
-                                type="button"
-                                onClick={() => fileInputRef.current.click()}
-                                className="flex items-center space-x-2 text-sm font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
-                            >
-                                <ImageIcon className="w-5 h-5" />
-                                <span>{imagePreview ? 'Change Image' : 'Add Image'}</span>
-                            </button>
-                             <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleImageSelect}
-                                className="hidden"
-                                accept="image/*"
+        <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-8">
+            {/* Left Sidebar Widget */}
+            <div className="hidden lg:block lg:col-span-1">
+                <div className="sticky top-24 h-[calc(100vh-7rem)]">
+                    <h3 className="font-bold mb-4">Top Stories</h3>
+                    <TimelineWidget theme={theme} />
+                </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="lg:col-span-3 xl:col-span-3 space-y-8">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                    <h2 className="text-2xl font-bold mb-4">Create a New Post</h2>
+                    <form onSubmit={handleCreatePost} className="space-y-4">
+                        <div>
+                            <label htmlFor="post-title" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
+                            <input 
+                                id="post-title"
+                                type="text"
+                                value={newPostTitle}
+                                onChange={(e) => setNewPostTitle(e.target.value)}
+                                placeholder="What's on your mind?"
+                                className="mt-1 w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
                             />
                         </div>
-                    </div>
+                        <div>
+                            <label htmlFor="post-content" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
+                            <textarea
+                                id="post-content"
+                                rows="5"
+                                value={newPostContent}
+                                onChange={(e) => setNewPostContent(e.target.value)}
+                                placeholder="Share your thoughts, strategies, or questions with the community..."
+                                className="mt-1 w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            />
+                        </div>
+                        
+                        {/* Image Upload Section */}
+                        <div>
+                            {imagePreview && (
+                                <div className="mt-2 relative">
+                                    <img src={imagePreview} alt="Image preview" className="max-h-48 rounded-md w-auto" />
+                                    <button
+                                        type="button"
+                                        onClick={removeImage}
+                                        className="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-75"
+                                    >
+                                        <CloseIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                            <div className="mt-2 flex items-center">
+                                 <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current.click()}
+                                    className="flex items-center space-x-2 text-sm font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+                                >
+                                    <ImageIcon className="w-5 h-5" />
+                                    <span>{imagePreview ? 'Change Image' : 'Add Image'}</span>
+                                </button>
+                                 <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleImageSelect}
+                                    className="hidden"
+                                    accept="image/*"
+                                />
+                            </div>
+                        </div>
 
-                    <div className="text-right">
-                         <button 
-                            type="submit" 
-                            disabled={isSubmitting}
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition disabled:opacity-50"
-                        >
-                            {isSubmitting ? 'Posting...' : 'Post'}
-                        </button>
-                    </div>
-                </form>
+                        <div className="text-right">
+                             <button 
+                                type="submit" 
+                                disabled={isSubmitting}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md transition disabled:opacity-50"
+                            >
+                                {isSubmitting ? 'Posting...' : 'Post'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold">Community Feed</h2>
+                    {isLoading ? (
+                        <p className="text-center text-gray-500">Loading posts...</p>
+                    ) : posts.length > 0 ? (
+                        posts.map(post => <PostItem key={post.id} post={post} user={user} profileData={profileData} />)
+                    ) : (
+                        <p className="text-center text-gray-500 py-8">No posts yet. Be the first to start a conversation!</p>
+                    )}
+                </div>
             </div>
-            
-            <div className="space-y-6">
-                <h2 className="text-2xl font-bold">Community Feed</h2>
-                {isLoading ? (
-                    <p className="text-center text-gray-500">Loading posts...</p>
-                ) : posts.length > 0 ? (
-                    posts.map(post => <PostItem key={post.id} post={post} user={user} profileData={profileData} />)
-                ) : (
-                    <p className="text-center text-gray-500 py-8">No posts yet. Be the first to start a conversation!</p>
-                )}
+
+            {/* Right Sidebar Widget */}
+            <div className="hidden xl:block xl:col-span-1">
+                 <div className="sticky top-24 h-[calc(100vh-7rem)]">
+                    <h3 className="font-bold mb-4">Economic Calendar</h3>
+                    <EventsWidget theme={theme} />
+                </div>
             </div>
         </div>
     );
@@ -4010,7 +4087,7 @@ Keep each section concise and to the point. Do not add any other sections or int
           )}
           
           {activeTab === 'Community' && (
-            <CommunityPage user={user} profileData={profileData} />
+            <CommunityPage user={user} profileData={profileData} theme={theme} />
           )}
 
         </main>
@@ -4249,6 +4326,7 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} theme={theme} setTheme={setTheme} /> : <AuthPage onShowLanding={handleShowLanding} />;
 }
+
 
 
 
