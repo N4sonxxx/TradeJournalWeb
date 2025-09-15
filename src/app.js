@@ -158,6 +158,112 @@ const ClipboardCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000
 const BarChartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>;
 
 
+// --- Interactive Background Component ---
+const InteractiveHeroBackground = memo(({ theme }) => {
+    const canvasRef = useRef(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let particlesArray = [];
+        let animationFrameId;
+        
+        const setCanvasSize = () => {
+            if (canvas.parentElement) {
+                canvas.width = canvas.parentElement.offsetWidth;
+                canvas.height = canvas.parentElement.offsetHeight;
+            }
+        };
+
+        class Particle {
+            constructor(x, y, directionX, directionY, size, color) {
+                this.x = x;
+                this.y = y;
+                this.directionX = directionX;
+                this.directionY = directionY;
+                this.size = size;
+                this.color = color;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+            update() {
+                if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX;
+                if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY;
+                this.x += this.directionX;
+                this.y += this.directionY;
+                this.draw();
+            }
+        }
+
+        function init() {
+            particlesArray = [];
+            const particleColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
+            const numberOfParticles = (canvas.height * canvas.width) / 12000;
+            for (let i = 0; i < numberOfParticles; i++) {
+                const size = (Math.random() * 2) + 0.5;
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const directionX = (Math.random() * 0.4) - 0.2;
+                const directionY = (Math.random() * 0.4) - 0.2;
+                particlesArray.push(new Particle(x, y, directionX, directionY, size, particleColor));
+            }
+        }
+        
+        function connect() {
+            for (let a = 0; a < particlesArray.length; a++) {
+                for (let b = a; b < particlesArray.length; b++) {
+                    const distance = ((particlesArray[a].x - particlesArray[b].x) ** 2) + ((particlesArray[a].y - particlesArray[b].y) ** 2);
+                    if (distance < (canvas.width / 8) * (canvas.height / 8)) {
+                        const opacity = 1 - (distance / 18000);
+                        if (opacity > 0) {
+                            const rgb = theme === 'dark' ? '255,255,255' : '0,0,0';
+                            ctx.strokeStyle = `rgba(${rgb}, ${opacity})`;
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
+                            ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particlesArray.forEach(p => p.update());
+            connect();
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        function handleResize() {
+            cancelAnimationFrame(animationFrameId);
+            setCanvasSize();
+            init();
+            animate();
+        }
+
+        setCanvasSize();
+        init();
+        animate();
+
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [theme]);
+
+    return <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />;
+});
+
+
 // --- TradingView Widget Component ---
 const TradingViewWidget = memo(function TradingViewWidget() {
     const container = useRef(null);
@@ -206,6 +312,41 @@ const TradingViewWidget = memo(function TradingViewWidget() {
                 <div className="tradingview-widget-container__widget" style={{ height: "calc(100% - 32px)", width: "100%" }}></div>
                 <div className="tradingview-widget-copyright"><a href="https://www.tradingview.com/symbols/OANDA-XAUUSD/?exchange=OANDA" rel="noopener nofollow" target="_blank"><span className="blue-text">XAUUSD chart by TradingView</span></a></div>
             </div>
+        </div>
+    );
+});
+
+const TickerTapeWidget = memo(function TickerTapeWidget({ theme }) {
+    const container = useRef(null);
+
+    useEffect(() => {
+        if (container.current) {
+            const script = document.createElement("script");
+            script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+            script.type = "text/javascript";
+            script.async = true;
+            script.innerHTML = `
+            {
+              "symbols": [
+                {"proName": "FOREXCOM:SPXUSD", "title": "S&P 500 Index"},
+                {"proName": "FOREXCOM:NSXUSD", "title": "US 100 Cash CFD"},
+                {"proName": "BITSTAMP:BTCUSD", "title": "Bitcoin"},
+                {"proName": "OANDA:XAUUSD", "title": "Gold"}
+              ],
+              "showSymbolLogo": true,
+              "isTransparent": true,
+              "displayMode": "adaptive",
+              "colorTheme": "${theme}",
+              "locale": "en"
+            }`;
+            container.current.innerHTML = ''; // Clear previous widget to prevent duplicates
+            container.current.appendChild(script);
+        }
+    }, [theme]);
+
+    return (
+        <div className="tradingview-widget-container" ref={container}>
+            <div className="tradingview-widget-container__widget"></div>
         </div>
     );
 });
@@ -287,19 +428,29 @@ const LandingPage = ({ onEnter, theme, setTheme }) => {
 
             <main>
                 {/* Hero Section */}
-                <section className="text-center py-24 sm:py-32 lg:py-40 px-6">
-                    <AnimatedSection>
-                        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 dark:from-white dark:via-gray-300 dark:to-white">
-                            The Future of Trading is Here.
-                        </h1>
-                        <p className="max-w-2xl mx-auto mt-6 text-lg sm:text-xl text-gray-600 dark:text-gray-400">
-                            Elevate your trading with our intelligent journal. Log, analyze, and get personalized AI-driven insights to master the markets.
-                        </p>
-                        <button onClick={onEnter} className="mt-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-full text-lg transition-transform transform hover:scale-105">
-                            Get Started Now
-                        </button>
-                    </AnimatedSection>
+                <section className="relative text-center py-24 sm:py-32 lg:py-40 px-6 overflow-hidden">
+                    {/* Interactive Background */}
+                    <InteractiveHeroBackground theme={theme} />
+                    
+                    <div className="relative z-10">
+                        <AnimatedSection>
+                            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 dark:from-white dark:via-gray-300 dark:to-white">
+                                The Future of Trading is Here.
+                            </h1>
+                            <p className="max-w-2xl mx-auto mt-6 text-lg sm:text-xl text-gray-600 dark:text-gray-400">
+                                Elevate your trading with our intelligent journal. Log, analyze, and get personalized AI-driven insights to master the markets.
+                            </p>
+                            <button onClick={onEnter} className="mt-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-full text-lg transition-transform transform hover:scale-105">
+                                Get Started Now
+                            </button>
+                        </AnimatedSection>
+                    </div>
                 </section>
+
+                {/* Ticker Tape Widget */}
+                <div className="py-2 bg-white dark:bg-black border-y border-gray-200 dark:border-gray-800">
+                    <TickerTapeWidget theme={theme} />
+                </div>
 
                 {/* Feature Showcase 1 */}
                 <section className="py-20 sm:py-28 bg-gray-50 dark:bg-gray-900">
@@ -4098,6 +4249,9 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} theme={theme} setTheme={setTheme} /> : <AuthPage onShowLanding={handleShowLanding} />;
 }
+
+
+
 
 
 
