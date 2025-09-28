@@ -376,7 +376,7 @@ const LandingPage = ({ onEnter, theme, setTheme }) => {
                         muted
                         playsInline
                         className="absolute top-1/2 left-1/2 w-full h-full object-cover -translate-x-1/2 -translate-y-1/2 z-0"
-                        src="Robot_Assisted_Trading_Happiness.mp4"
+                        src="https://firebasestorage.googleapis.com/v0/b/jurnal-trading-saya.appspot.com/o/Robot_Assisted_Trading_Happiness.mp4?alt=media&token=4020af67-2ba0-4366-b849-0401c24b0b17"
                     >
                         Your browser does not support the video tag.
                     </video>
@@ -4219,6 +4219,8 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} theme={theme} setTheme={setTheme} /> : <AuthPage onShowLanding={handleShowLanding} />;
 }
+
+
 
 
 
