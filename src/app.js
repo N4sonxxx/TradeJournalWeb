@@ -146,6 +146,112 @@ const ClipboardCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000
 const BarChartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>;
 
 
+// --- Interactive Background Component ---
+const InteractiveHeroBackground = memo(({ theme }) => {
+    const canvasRef = useRef(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let particlesArray = [];
+        let animationFrameId;
+        
+        const setCanvasSize = () => {
+            if (canvas.parentElement) {
+                canvas.width = canvas.parentElement.offsetWidth;
+                canvas.height = canvas.parentElement.offsetHeight;
+            }
+        };
+
+        class Particle {
+            constructor(x, y, directionX, directionY, size, color) {
+                this.x = x;
+                this.y = y;
+                this.directionX = directionX;
+                this.directionY = directionY;
+                this.size = size;
+                this.color = color;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+            update() {
+                if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX;
+                if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY;
+                this.x += this.directionX;
+                this.y += this.directionY;
+                this.draw();
+            }
+        }
+
+        function init() {
+            particlesArray = [];
+            const particleColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
+            const numberOfParticles = (canvas.height * canvas.width) / 12000;
+            for (let i = 0; i < numberOfParticles; i++) {
+                const size = (Math.random() * 2) + 0.5;
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const directionX = (Math.random() * 0.4) - 0.2;
+                const directionY = (Math.random() * 0.4) - 0.2;
+                particlesArray.push(new Particle(x, y, directionX, directionY, size, particleColor));
+            }
+        }
+        
+        function connect() {
+            for (let a = 0; a < particlesArray.length; a++) {
+                for (let b = a; b < particlesArray.length; b++) {
+                    const distance = ((particlesArray[a].x - particlesArray[b].x) ** 2) + ((particlesArray[a].y - particlesArray[b].y) ** 2);
+                    if (distance < (canvas.width / 8) * (canvas.height / 8)) {
+                        const opacity = 1 - (distance / 18000);
+                        if (opacity > 0) {
+                            const rgb = theme === 'dark' ? '255,255,255' : '0,0,0';
+                            ctx.strokeStyle = `rgba(${rgb}, ${opacity})`;
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
+                            ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particlesArray.forEach(p => p.update());
+            connect();
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        function handleResize() {
+            cancelAnimationFrame(animationFrameId);
+            setCanvasSize();
+            init();
+            animate();
+        }
+
+        setCanvasSize();
+        init();
+        animate();
+
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [theme]);
+
+    return <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />;
+});
+
+
 // --- Community Page Widgets ---
 const TimelineWidget = memo(function TimelineWidget({ theme }) {
     const container = useRef(null);
@@ -368,28 +474,16 @@ const LandingPage = ({ onEnter, theme, setTheme }) => {
 
             <main>
                 {/* Hero Section */}
-                <section className="relative h-screen flex items-center justify-center text-center px-6 overflow-hidden">
-                    {/* Background Video */}
-                    <video
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        className="absolute top-1/2 left-1/2 w-full h-full object-cover -translate-x-1/2 -translate-y-1/2 z-0"
-                        src="https://firebasestorage.googleapis.com/v0/b/jurnal-trading-saya.appspot.com/o/Robot_Assisted_Trading_Happiness.mp4?alt=media&token=4020af67-2ba0-4366-b849-0401c24b0b17"
-                    >
-                        Your browser does not support the video tag.
-                    </video>
+                <section className="relative text-center py-24 sm:py-32 lg:py-40 px-6 overflow-hidden">
+                    {/* Interactive Background */}
+                    <InteractiveHeroBackground theme={theme} />
                     
-                    {/* Overlay */}
-                    <div className="absolute top-0 left-0 w-full h-full bg-black opacity-50 z-10"></div>
-                    
-                    <div className="relative z-20">
+                    <div className="relative z-10">
                         <AnimatedSection>
-                            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white">
+                            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 dark:from-white dark:via-gray-300 dark:to-white">
                                 The Future of Trading is Here.
                             </h1>
-                            <p className="max-w-2xl mx-auto mt-6 text-lg sm:text-xl text-gray-300">
+                            <p className="max-w-2xl mx-auto mt-6 text-lg sm:text-xl text-gray-600 dark:text-gray-400">
                                 Elevate your trading with our intelligent journal. Log, analyze, and get personalized AI-driven insights to master the markets.
                             </p>
                             <button onClick={onEnter} className="mt-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-full text-lg transition-transform transform hover:scale-105">
@@ -4219,9 +4313,6 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} theme={theme} setTheme={setTheme} /> : <AuthPage onShowLanding={handleShowLanding} />;
 }
-
-
-
 
 
 
