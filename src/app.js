@@ -46,33 +46,24 @@ const auth = getAuth(app);
 
 // --- Gemini API Helper ---
 const callGeminiAPI = async (userQuery, systemInstruction, useGrounding = false, jsonSchema = null) => {
-    const apiKey = "AIzaSyCwiCfrPq6J0deEbYewPDw5bJMgdpJxTag";
-    const model = 'gemini-2.5-flash-preview-05-20';
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    // The hardcoded API key has been removed for security.
+    // This now points to your secure Google Cloud Function for text generation.
+    // IMPORTANT: You will need to create and deploy a second Cloud Function (e.g., 'generateText')
+    // that accepts the Gemini payload, adds your API key on the server, and forwards the request.
+    const cloudFunctionUrl = 'https://us-central1-jurnal-trading-saya.cloudfunctions.net/callGemini';
 
     const payload = {
-        contents: [{ parts: [{ text: userQuery }] }],
-        systemInstruction: {
-            parts: [{ text: systemInstruction }]
-        },
+        userQuery,
+        systemInstruction,
+        useGrounding,
+        jsonSchema
     };
-
-    if (useGrounding) {
-        payload.tools = [{ "google_search": {} }];
-    }
-
-    if (jsonSchema) {
-        payload.generationConfig = {
-            responseMimeType: "application/json",
-            responseSchema: jsonSchema,
-        };
-    }
 
     let attempts = 0;
     const maxAttempts = 5;
     while (attempts < maxAttempts) {
         try {
-            const response = await fetch(apiUrl, {
+            const response = await fetch(cloudFunctionUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -84,11 +75,9 @@ const callGeminiAPI = async (userQuery, systemInstruction, useGrounding = false,
                 throw new Error(`API request failed with status ${response.status}`);
             }
 
-            const result = await response.json();
-            const candidate = result.candidates?.[0];
+            const text = await response.text();
 
-            if (candidate && candidate.content?.parts?.[0]?.text) {
-                const text = candidate.content.parts[0].text;
+            if (text) {
                 if (jsonSchema) {
                     try {
                         return JSON.parse(text);
@@ -99,8 +88,7 @@ const callGeminiAPI = async (userQuery, systemInstruction, useGrounding = false,
                 }
                 return text;
             } else {
-                console.error("Unexpected API response structure:", result);
-                throw new Error("Invalid response from AI.");
+                throw new Error("Received an empty response from the server.");
             }
 
         } catch (error) {
@@ -156,112 +144,6 @@ const CalendarIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" 
 const ClipboardCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>;
 
 const BarChartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>;
-
-
-// --- Interactive Background Component ---
-const InteractiveHeroBackground = memo(({ theme }) => {
-    const canvasRef = useRef(null);
-
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        let particlesArray = [];
-        let animationFrameId;
-        
-        const setCanvasSize = () => {
-            if (canvas.parentElement) {
-                canvas.width = canvas.parentElement.offsetWidth;
-                canvas.height = canvas.parentElement.offsetHeight;
-            }
-        };
-
-        class Particle {
-            constructor(x, y, directionX, directionY, size, color) {
-                this.x = x;
-                this.y = y;
-                this.directionX = directionX;
-                this.directionY = directionY;
-                this.size = size;
-                this.color = color;
-            }
-            draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-            }
-            update() {
-                if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX;
-                if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY;
-                this.x += this.directionX;
-                this.y += this.directionY;
-                this.draw();
-            }
-        }
-
-        function init() {
-            particlesArray = [];
-            const particleColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
-            const numberOfParticles = (canvas.height * canvas.width) / 12000;
-            for (let i = 0; i < numberOfParticles; i++) {
-                const size = (Math.random() * 2) + 0.5;
-                const x = Math.random() * canvas.width;
-                const y = Math.random() * canvas.height;
-                const directionX = (Math.random() * 0.4) - 0.2;
-                const directionY = (Math.random() * 0.4) - 0.2;
-                particlesArray.push(new Particle(x, y, directionX, directionY, size, particleColor));
-            }
-        }
-        
-        function connect() {
-            for (let a = 0; a < particlesArray.length; a++) {
-                for (let b = a; b < particlesArray.length; b++) {
-                    const distance = ((particlesArray[a].x - particlesArray[b].x) ** 2) + ((particlesArray[a].y - particlesArray[b].y) ** 2);
-                    if (distance < (canvas.width / 8) * (canvas.height / 8)) {
-                        const opacity = 1 - (distance / 18000);
-                        if (opacity > 0) {
-                            const rgb = theme === 'dark' ? '255,255,255' : '0,0,0';
-                            ctx.strokeStyle = `rgba(${rgb}, ${opacity})`;
-                            ctx.lineWidth = 1;
-                            ctx.beginPath();
-                            ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
-                            ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
-                            ctx.stroke();
-                        }
-                    }
-                }
-            }
-        }
-
-        function animate() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            particlesArray.forEach(p => p.update());
-            connect();
-            animationFrameId = requestAnimationFrame(animate);
-        }
-
-        function handleResize() {
-            cancelAnimationFrame(animationFrameId);
-            setCanvasSize();
-            init();
-            animate();
-        }
-
-        setCanvasSize();
-        init();
-        animate();
-
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            cancelAnimationFrame(animationFrameId);
-            window.removeEventListener('resize', handleResize);
-        };
-    }, [theme]);
-
-    return <canvas ref={canvasRef} className="absolute inset-0 z-0 w-full h-full" />;
-});
 
 
 // --- Community Page Widgets ---
@@ -486,16 +368,28 @@ const LandingPage = ({ onEnter, theme, setTheme }) => {
 
             <main>
                 {/* Hero Section */}
-                <section className="relative text-center py-24 sm:py-32 lg:py-40 px-6 overflow-hidden">
-                    {/* Interactive Background */}
-                    <InteractiveHeroBackground theme={theme} />
+                <section className="relative h-screen flex items-center justify-center text-center px-6 overflow-hidden">
+                    {/* Background Video */}
+                    <video
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="absolute top-1/2 left-1/2 w-full h-full object-cover -translate-x-1/2 -translate-y-1/2 z-0"
+                        src="Robot_Assisted_Trading_Happiness.mp4"
+                    >
+                        Your browser does not support the video tag.
+                    </video>
                     
-                    <div className="relative z-10">
+                    {/* Overlay */}
+                    <div className="absolute top-0 left-0 w-full h-full bg-black opacity-50 z-10"></div>
+                    
+                    <div className="relative z-20">
                         <AnimatedSection>
-                            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 dark:from-white dark:via-gray-300 dark:to-white">
+                            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white">
                                 The Future of Trading is Here.
                             </h1>
-                            <p className="max-w-2xl mx-auto mt-6 text-lg sm:text-xl text-gray-600 dark:text-gray-400">
+                            <p className="max-w-2xl mx-auto mt-6 text-lg sm:text-xl text-gray-300">
                                 Elevate your trading with our intelligent journal. Log, analyze, and get personalized AI-driven insights to master the markets.
                             </p>
                             <button onClick={onEnter} className="mt-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-full text-lg transition-transform transform hover:scale-105">
@@ -1187,26 +1081,25 @@ Provide a concise rationale for each point. This is for educational purposes ONL
                 },
             };
 
-            const apiKey = "AIzaSyCwiCfrPq6J0deEbYewPDw5bJMgdpJxTag";
-            const model = 'gemini-2.5-flash-preview-05-20';
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            // The hardcoded API key has been removed.
+            // This now points to your secure 'analyzeChart' Google Cloud Function as configured in your screenshot.
+            const cloudFunctionUrl = 'https://us-central1-jurnal-trading-saya.cloudfunctions.net/analyzeChart';
 
-            const response = await fetch(apiUrl, {
+            const response = await fetch(cloudFunctionUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
-                const errorBody = await response.json();
+                const errorBody = await response.text();
                 console.error('Gemini Vision API Error:', errorBody);
                 throw new Error(`API error: ${response.statusText}`);
             }
 
-            const result = await response.json();
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            const text = await response.text();
             if (!text) {
-                console.error("Unexpected Vision API response structure:", result);
+                console.error("Unexpected Vision API response structure: empty response");
                 throw new Error("Invalid response from AI.");
             }
 
@@ -4326,6 +4219,9 @@ export default function App() {
 
     return user ? <TradingJournal user={user} handleLogout={handleLogout} theme={theme} setTheme={setTheme} /> : <AuthPage onShowLanding={handleShowLanding} />;
 }
+
+
+
 
 
 
